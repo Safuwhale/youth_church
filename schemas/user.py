@@ -1,0 +1,35 @@
+#This handles all data validation before it ever touches your database.
+from pydantic import BaseModel, Field, validator
+from datetime import date
+from typing import Optional
+from uuid import UUID
+
+# Payload expected from the React frontend
+class UserCreate(BaseModel):
+    first_name: str = Field(..., example="Nandom")
+    last_name: str = Field(..., example="Fyamya")
+    phone_number: str = Field(..., example="08012345678")
+    whatsapp_number: Optional[str] = None
+    whatsapp_same_as_phone: bool = True 
+    dob: date = Field(..., example="2003-05-14")
+    location_zone: str = Field(..., example="Wuse 2")
+    contact_person_name: str = Field(..., example="Mrs. Fyamya")
+    contact_person_relation: str = Field(..., example="Mother")
+
+    @validator('whatsapp_number', always=True)
+    def set_whatsapp_number(cls, v, values):
+        if values.get('whatsapp_same_as_phone') and 'phone_number' in values:
+            return values['phone_number']
+        return v
+
+# Payload returned to the frontend (excludes sensitive internal data)
+class UserResponse(BaseModel):
+    id: UUID
+    serial_number: str
+    first_name: str
+    last_name: str
+    role: str
+    is_active: bool
+
+    class Config:
+        from_attributes = True
