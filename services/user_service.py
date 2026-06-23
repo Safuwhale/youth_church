@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from models import User
 from schemas.user import UserCreate
+from core.security import get_password_hash  # Import the new hashing function
 
 def generate_serial_number(db: Session) -> str:
     """Generates a sequential serial number in the format HORYC-001."""
@@ -36,8 +37,11 @@ def create_new_user(db: Session, user_data: UserCreate):
 
     # 2. Generate sequential serial number
     new_serial = generate_serial_number(db)
+    
+    # 3. Hash the serial number to serve as the default password
+    hashed_default_pwd = get_password_hash(new_serial)
 
-    # 3. Build the database object
+    # 4. Build the database object
     db_user = User(
         serial_number=new_serial,
         first_name=user_data.first_name,
@@ -48,10 +52,11 @@ def create_new_user(db: Session, user_data: UserCreate):
         location_zone=user_data.location_zone,
         contact_person_name=user_data.contact_person_name,
         contact_person_relation=user_data.contact_person_relation,
+        hashed_password=hashed_default_pwd, # Save the securely hashed password
         role="member" 
     )
 
-    # 4. Save to database
+    # 5. Save to database
     db.add(db_user)
     db.commit()
     db.refresh(db_user)

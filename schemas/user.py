@@ -1,4 +1,3 @@
-#This handles all data validation before it ever touches your database.
 from pydantic import BaseModel, Field, validator
 from datetime import date
 from typing import Optional
@@ -33,3 +32,13 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+#FOR LOGIN ---
+class UserLogin(BaseModel):
+    phone_number: str = Field(..., example="08012345678")
+    password: str = Field(..., example="HORYC-001") # They use their serial number here
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+    user: UserResponse
