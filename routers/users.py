@@ -5,6 +5,7 @@ from services.user_service import create_new_user
 from database import get_db
 from models import User
 from core.security import verify_password, create_access_token
+from core.dependencies import get_current_user
 
 router = APIRouter()
 
@@ -51,3 +52,12 @@ def login_user(credentials: UserLogin, db: Session = Depends(get_db)):
         "token_type": "bearer",
         "user": user
     }
+    
+    @router.get("/me", response_model=UserResponse)
+    def get_member_dashboard(current_user: User = Depends(get_current_user)):
+        """
+        Member Portal Endpoint.
+        The React app calls this using the user's JWT token. 
+        It returns their profile, which the app uses to generate their QR code on the screen.
+        """
+        return current_user
