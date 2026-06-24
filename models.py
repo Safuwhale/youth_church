@@ -7,12 +7,14 @@ from database import Base
 
 class CellGroup(Base):
     __tablename__ = "cell_groups"
+    
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String(100), nullable=False)
-    meeting_location = Column(String(150))
+    name = Column(String(100), unique=True, nullable=False)
+    location = Column(String(100), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    # Relationship to link back to the users in this cell
     members = relationship("User", back_populates="cell_group")
-
+    
 class User(Base):
     __tablename__ = "users"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
