@@ -8,7 +8,7 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Youth Church Attendance API",
-    description="API backend for the Flipped QR check-in system.",
+    description="API backend for the Two way QR check-in system.",
     version="1.0.0"
 )
 
