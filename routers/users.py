@@ -53,11 +53,11 @@ def login_user(credentials: UserLogin, db: Session = Depends(get_db)):
         "user": user
     }
     
-    @router.get("/me", response_model=UserResponse)
-    def get_member_dashboard(current_user: User = Depends(get_current_user)):
-        """
-        Member Portal Endpoint.
-        The React app calls this using the user's JWT token. 
-        It returns their profile, which the app uses to generate their QR code on the screen.
-        """
-        return current_user
+@router.get("/me", response_model=UserResponse)
+def get_member_dashboard(current_user: User = Depends(get_current_user)):
+    """
+    Member Portal Endpoint.
+    The React app calls this using the user's JWT token. 
+    It returns their profile, which the app uses to generate their QR code on the screen.
+    """
+    return current_user
