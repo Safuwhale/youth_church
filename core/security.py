@@ -1,7 +1,7 @@
-import bcrypt
-import jwt, os
+import os
 from datetime import datetime, timedelta, timezone
-from datetime import datetime, timedelta
+
+import bcrypt
 from jose import jwt
 
 

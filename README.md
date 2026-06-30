@@ -45,6 +45,12 @@ source .venv/bin/activate  # On Windows use: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+If you are setting the project up for the first time, also run the database migrations right after installing dependencies:
+
+```bash
+alembic upgrade head
+```
+
 ### 3. Database Configuration
 
 Ensure PostgreSQL is running on your machine. Update the connection string inside `database.py` with your local PostgreSQL credentials:
@@ -55,7 +61,7 @@ SQLALCHEMY_DATABASE_URL = "postgresql://username:password@localhost/youth_church
 
 ### 4. Initialize Database & Seed Admin(for test)
 
-The tables will automatically generate on startup. To create the master HOD account, run the seed script:
+The schema should be managed with Alembic migrations. To create the master HOD account, run the seed script:
 
 ```bash
 python seed_admin.py
@@ -68,6 +74,8 @@ python seed_admin.py
 ```bash
 uvicorn main:app --reload
 ```
+
+If you change any SQLAlchemy models later, create a new Alembic revision and apply it with `alembic upgrade head` instead of depending on startup table creation.
 
 The API will be available at `http://127.0.0.1:8000`.
 

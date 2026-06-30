@@ -45,7 +45,7 @@ def process_scan(db: Session, scan_data: AttendanceScan, current_user: User):
     # 5. Duplicate Failsafe (Triggers the yellow frontend screen)
     existing = db.query(AttendanceLog).filter(
         AttendanceLog.user_id == member.id,
-        AttendanceLog.service_id == active_service.id
+        AttendanceLog.service_id == target_service.id
     ).first()
     
     if existing:
@@ -57,7 +57,7 @@ def process_scan(db: Session, scan_data: AttendanceScan, current_user: User):
     # 6. Save with Usher context
     new_log = AttendanceLog(
         user_id=member.id,
-        service_id=active_service.id,
+        service_id=target_service.id,
         usher_id=current_user.id, # Tracks exactly who scanned this member
         check_in_method=getattr(scan_data, 'check_in_method', 'QR_SCAN')
     )

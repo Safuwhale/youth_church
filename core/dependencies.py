@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-import jwt
+from jose import jwt, JWTError
 from database import get_db
 from models import User
 from core.security import SECRET_KEY, ALGORITHM
@@ -23,7 +23,7 @@ def get_current_user(token: HTTPAuthorizationCredentials = Depends(security), db
         user_id: str = payload.get("sub")
         if user_id is None:
             raise credentials_exception
-    except jwt.PyJWTError:
+    except JWTError:
         raise credentials_exception
         
     # Find the user in the database

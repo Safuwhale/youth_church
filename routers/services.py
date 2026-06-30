@@ -21,7 +21,7 @@ def close_service_gates(service_id: str, db: Session = Depends(get_db)):
     """Closes the check-in gates and triggers the absentee list generation phase."""
     return deactivate_service(db=db, service_id=service_id)
 
-@router.get("/", response_model=List[ServiceResponse])
+@router.get("", response_model=List[ServiceResponse])
 def list_all_services(db: Session = Depends(get_db)):
     """
     Fetches all services for the Usher and HOD Dashboards.
