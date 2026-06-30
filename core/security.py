@@ -1,11 +1,16 @@
 import bcrypt
-import jwt
+import jwt, os
 from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from jose import jwt
+
 
 # In production, this goes in a .env file. For MVP, we define it here.
-SECRET_KEY = "your-super-secret-production-key-change-this-later"
+SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-here")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # 7 days so leaders don't get logged out constantly
+ACCESS_TOKEN_EXPIRE_MINUTES = 15
+REFRESH_TOKEN_EXPIRE_DAYS = 30
+#ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # 7 days so leaders don't get logged out constantly
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Checks if the provided password matches the hash in the database."""
@@ -30,5 +35,15 @@ def create_access_token(data: dict) -> str:
     to_encode.update({"exp": expire})
     
     # Create the JWT
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+def create_refresh_token(data: dict):
+    """
+    Generates a long-lived JWT specifically for refreshing the access token.
+    """
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
