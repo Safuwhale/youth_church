@@ -41,6 +41,8 @@ class Service(Base):
     title = Column(String(100), nullable=False) 
     service_date = Column(Date, nullable=False)
     is_active = Column(Boolean, default=False)
+    time_started = Column(DateTime(timezone=True), nullable=True)
+    time_closed = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     attendances = relationship("AttendanceLog", back_populates="service", cascade="all, delete-orphan")
 

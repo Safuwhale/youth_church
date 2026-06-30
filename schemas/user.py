@@ -42,3 +42,15 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str
     user: UserResponse
+
+class UserUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    whatsapp_number: Optional[str] = None
+    whatsapp_same_as_phone: Optional[bool] = None
+    dob: Optional[date] = None
+    location_zone: Optional[str] = None
+    contact_person_name: Optional[str] = None
+    contact_person_relation: Optional[str] = None
+    new_password: Optional[str] = None 

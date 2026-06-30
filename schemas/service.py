@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
+from typing import Optional
 
 class ServiceCreate(BaseModel):
     title: str = Field(..., example="Sunday Youth Service")
@@ -11,6 +12,8 @@ class ServiceResponse(BaseModel):
     title: str
     service_date: date
     is_active: bool
+    time_started: Optional[datetime] = None 
+    attendance_count: Optional[int] = 0
 
     class Config:
         from_attributes = True

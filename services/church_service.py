@@ -1,7 +1,8 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-from models import Service
+from models import Service, AttendanceLog
 from schemas.service import ServiceCreate
+from sqlalchemy.sql import func
 
 def create_service(db: Session, service_data: ServiceCreate):
     new_service = Service(
@@ -25,6 +26,8 @@ def activate_service(db: Session, service_id: str):
         
     # 3. Activate it
     target_service.is_active = True
+    if not target_service.time_started:
+        target_service.time_started = func.now()
     db.commit()
     db.refresh(target_service)
     return target_service
@@ -38,3 +41,22 @@ def deactivate_service(db: Session, service_id: str):
     db.commit()
     db.refresh(target_service)
     return target_service
+
+def delete_service(db: Session, service_id: str):
+    target_service = db.query(Service).filter(Service.id == service_id).first()
+    if not target_service:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
+        
+    # Prevent deleting services that have happened
+    if target_service.time_started is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot delete a service that has already started or completed.")
+        
+    db.delete(target_service)
+    db.commit()
+
+def get_all_services(db: Session):
+    services = db.query(Service).order_by(Service.service_date.desc()).all()
+    # Dynamically attach attendance count so the dashboard can display it
+    for s in services:
+        s.attendance_count = db.query(AttendanceLog).filter(AttendanceLog.service_id == s.id).count()
+    return services
