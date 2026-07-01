@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status, Response
 from sqlalchemy.orm import Session
 from schemas.attendance import AttendanceScan, AttendanceResponse, SelfCheckIn
-from services.attendance_service import process_scan, process_self_checkin, export_attendance_csv
+from services.attendance_service import process_scan, process_self_checkin, export_attendance_csv, get_service_attendance_detail
 from models import User
 from database import get_db
 from core.dependencies import get_current_user
@@ -49,3 +49,12 @@ def download_attendance_report(
         media_type="text/csv",
         headers={"Content-Disposition": 'attachment; filename="attendance_report.csv"'}
     )
+
+
+@router.get("/services/{service_id}")
+def get_service_attendance(
+    service_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return get_service_attendance_detail(db=db, current_user=current_user, service_id=service_id)

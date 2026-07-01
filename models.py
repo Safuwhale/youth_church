@@ -1,16 +1,23 @@
-from sqlalchemy import Column, String, Boolean, Date, ForeignKey, DateTime, UniqueConstraint
+import enum
+
+from sqlalchemy import Column, String, Boolean, Date, ForeignKey, DateTime, UniqueConstraint, Enum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
 from database import Base
 
+
+class AttendanceMethod(enum.Enum):
+    QR_SCAN = "QR_SCAN"
+    SELF_SCAN = "SELF_SCAN"
+    MANUAL = "MANUAL"
+
 class CellGroup(Base):
     __tablename__ = "cell_groups"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(100), unique=True, nullable=False)
-    location = Column(String(100), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     # Relationship to link back to the users in this cell
     members = relationship("User", back_populates="cell_group")
@@ -53,7 +60,7 @@ class AttendanceLog(Base):
     service_id = Column(UUID(as_uuid=True), ForeignKey("services.id", ondelete="CASCADE"), nullable=False)
     usher_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
     check_in_time = Column(DateTime(timezone=True), server_default=func.now())
-    check_in_method = Column(String(20), default="QR_SCAN")
+    check_in_method = Column(Enum(AttendanceMethod, name="check_in_method_enum"), nullable=False, default=AttendanceMethod.QR_SCAN, server_default=AttendanceMethod.QR_SCAN.value)
     __table_args__ = (UniqueConstraint('user_id', 'service_id', name='_user_service_uc'),)
     user = relationship("User", foreign_keys=[user_id], back_populates="attendance_records")
     service = relationship("Service", back_populates="attendances")

@@ -99,6 +99,8 @@ This API adheres to the OpenAPI standard. Once the server is running locally, yo
 | Auth | `/api/users/onboard` | POST | Public |
 | Profile | `/api/users/me` | GET | Member+ |
 | Search | `/api/users/search` | GET | Usher+ |
+| Directory | `/api/users/directory` | GET | Admin+ |
+| Role Update | `/api/users/{id}/role` | PATCH | Admin+ |
 | Gates | `/api/services/create` | POST | HOD |
 | Gates | `/api/services/{id}/activate` | PATCH | HOD |
 | Scan | `/api/attendance/scan` | POST | Usher+ |

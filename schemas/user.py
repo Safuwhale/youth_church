@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, validator
 from datetime import date
-from typing import Optional
+from typing import Optional, Literal
 from uuid import UUID
 
 # Payload expected from the React frontend
@@ -54,3 +54,21 @@ class UserUpdate(BaseModel):
     contact_person_name: Optional[str] = None
     contact_person_relation: Optional[str] = None
     new_password: Optional[str] = None 
+
+
+class UserDirectoryItem(BaseModel):
+    id: UUID
+    serial_number: str
+    first_name: str
+    last_name: str
+    phone_number: str
+    role: str
+    is_active: bool
+    cell_group_id: Optional[UUID] = None
+
+    class Config:
+        from_attributes = True
+
+
+class UserRoleUpdate(BaseModel):
+    role: Literal["member", "usher", "leader", "hod", "admin"]

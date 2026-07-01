@@ -1,14 +1,75 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from models import User, CellGroup, Service, AttendanceLog
-from schemas.cell import CellCreate, CellAssignment
+from schemas.cell import CellCreate, CellUpdate, CellAssignment, CellMembersAssignment, CellMembersRemoval
 
 def create_cell(db: Session, cell_data: CellCreate):
-    new_cell = CellGroup(name=cell_data.name, location=cell_data.location)
+    new_cell = CellGroup(name=cell_data.name)
     db.add(new_cell)
     db.commit()
     db.refresh(new_cell)
     return new_cell
+
+
+def update_cell(db: Session, cell_group_id: str, cell_data: CellUpdate):
+    cell = db.query(CellGroup).filter(CellGroup.id == cell_group_id).first()
+    if not cell:
+        raise HTTPException(status_code=404, detail="Cell group not found")
+
+    update_data = cell_data.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(cell, key, value)
+
+    db.commit()
+    db.refresh(cell)
+    return cell
+
+
+def delete_cell(db: Session, cell_group_id: str):
+    cell = db.query(CellGroup).filter(CellGroup.id == cell_group_id).first()
+    if not cell:
+        raise HTTPException(status_code=404, detail="Cell group not found")
+
+    db.query(User).filter(User.cell_group_id == cell.id).update({"cell_group_id": None}, synchronize_session=False)
+    db.delete(cell)
+    db.commit()
+
+
+def list_cells(db: Session):
+    cells = db.query(CellGroup).order_by(CellGroup.created_at.desc()).all()
+    result = []
+    for cell in cells:
+        leaders = db.query(User).filter(User.cell_group_id == cell.id, User.role == "leader", User.is_active == True).order_by(User.first_name.asc()).all()
+        result.append({
+            "id": cell.id,
+            "name": cell.name,
+            "member_count": db.query(User).filter(User.cell_group_id == cell.id).count(),
+            "leader_count": len(leaders),
+            "leader_name": f"{leaders[0].first_name} {leaders[0].last_name}" if leaders else None,
+            "leader_phone": leaders[0].phone_number if leaders else None,
+        })
+    return result
+
+
+def list_cell_members(db: Session, cell_group_id: str):
+    cell = db.query(CellGroup).filter(CellGroup.id == cell_group_id).first()
+    if not cell:
+        raise HTTPException(status_code=404, detail="Cell group not found")
+
+    members = db.query(User).filter(User.cell_group_id == cell.id).order_by(User.first_name.asc()).all()
+    return [
+        {
+            "id": member.id,
+            "serial_number": member.serial_number,
+            "first_name": member.first_name,
+            "last_name": member.last_name,
+            "phone_number": member.phone_number,
+            "role": member.role,
+            "is_active": member.is_active,
+            "cell_group_id": member.cell_group_id,
+        }
+        for member in members
+    ]
 
 def assign_member(db: Session, assignment: CellAssignment):
     user = db.query(User).filter(User.id == assignment.user_id).first()
@@ -22,6 +83,47 @@ def assign_member(db: Session, assignment: CellAssignment):
     db.commit()
     db.refresh(user)
     return user
+
+
+def assign_members_bulk(db: Session, cell_group_id: str, payload: CellMembersAssignment):
+    cell = db.query(CellGroup).filter(CellGroup.id == cell_group_id).first()
+    if not cell:
+        raise HTTPException(status_code=404, detail="Cell group not found")
+
+    updated_members = []
+    for user_id in payload.user_ids:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            continue
+        user.cell_group_id = cell.id
+        if payload.make_leader:
+            user.role = "leader"
+        updated_members.append(user)
+
+    db.commit()
+    for member in updated_members:
+        db.refresh(member)
+
+    return {"message": "Members assigned successfully.", "updated_count": len(updated_members)}
+
+
+def remove_members_bulk(db: Session, cell_group_id: str, payload: CellMembersRemoval):
+    cell = db.query(CellGroup).filter(CellGroup.id == cell_group_id).first()
+    if not cell:
+        raise HTTPException(status_code=404, detail="Cell group not found")
+
+    removed_count = 0
+    for user_id in payload.user_ids:
+        user = db.query(User).filter(User.id == user_id, User.cell_group_id == cell.id).first()
+        if not user:
+            continue
+        user.cell_group_id = None
+        if user.role == "leader":
+            user.role = "member"
+        removed_count += 1
+
+    db.commit()
+    return {"message": "Members removed successfully.", "removed_count": removed_count}
 
 def generate_leader_dashboard(db: Session, current_user: User):
     if current_user.role not in ["leader", "admin", "hod"]:
