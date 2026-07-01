@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, status, HTTPException, Response, Cookie
 from sqlalchemy.orm import Session
-from schemas.user import UserCreate, UserResponse, UserLogin, TokenResponse, UserUpdate
+from schemas.user import UserCreate, UserResponse, UserLogin, TokenResponse, UserUpdate, UserDirectoryItem, UserRoleUpdate
 from services.user_service import create_new_user
 from database import get_db
 from models import User
@@ -99,6 +99,51 @@ def search_users(q: str, db: Session = Depends(get_db), current_user: User = Dep
     return db.query(User).filter(
         or_(User.first_name.ilike(f"%{q}%"), User.last_name.ilike(f"%{q}%"), User.serial_number.ilike(f"%{q}%"))
     ).limit(10).all()
+
+
+@router.get("/directory", response_model=list[UserDirectoryItem])
+def list_directory_users(
+    q: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role not in ["admin", "hod"]:
+        raise HTTPException(status_code=403, detail="Not authorized.")
+
+    query = db.query(User)
+    if q:
+        search = f"%{q}%"
+        query = query.filter(
+            or_(
+                User.first_name.ilike(search),
+                User.last_name.ilike(search),
+                User.phone_number.ilike(search),
+                User.serial_number.ilike(search),
+                User.role.ilike(search),
+            )
+        )
+
+    return query.order_by(User.created_at.desc()).all()
+
+
+@router.patch("/{user_id}/role", response_model=UserDirectoryItem)
+def update_user_role(
+    user_id: str,
+    payload: UserRoleUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role not in ["admin", "hod"]:
+        raise HTTPException(status_code=403, detail="Not authorized.")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    user.role = payload.role
+    db.commit()
+    db.refresh(user)
+    return user
 
 
 ###########delete later
