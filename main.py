@@ -17,6 +17,7 @@ app = FastAPI(
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "https://church-frontend-delta.vercel.app",
 ]
 
 app = FastAPI(docs_url=None, redoc_url=None) # Disables the docs in production
