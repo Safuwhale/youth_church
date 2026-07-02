@@ -38,6 +38,8 @@ def deactivate_service(db: Session, service_id: str):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
         
     target_service.is_active = False
+    if not target_service.time_closed:
+        target_service.time_closed = func.now()
     db.commit()
     db.refresh(target_service)
     return target_service
@@ -46,10 +48,6 @@ def delete_service(db: Session, service_id: str):
     target_service = db.query(Service).filter(Service.id == service_id).first()
     if not target_service:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
-        
-    # Prevent deleting services that have happened
-    if target_service.time_started is not None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot delete a service that has already started or completed.")
         
     db.delete(target_service)
     db.commit()

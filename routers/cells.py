@@ -28,8 +28,10 @@ from core.dependencies import get_current_user
 router = APIRouter()
 
 @router.post("/create")
-def create_new_cell(cell: CellCreate, db: Session = Depends(get_db)):
+def create_new_cell(cell: CellCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """HOD Endpoint: Creates a new cell group."""
+    if current_user.role not in ["admin", "hod"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized.")
     return create_cell(db=db, cell_data=cell)
 
 
@@ -75,8 +77,10 @@ def get_members_in_cell(
     return list_cell_members(db=db, cell_group_id=cell_group_id)
 
 @router.post("/assign")
-def assign_user_to_cell(assignment: CellAssignment, db: Session = Depends(get_db)):
+def assign_user_to_cell(assignment: CellAssignment, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """HOD Endpoint: Drops a member into a cell and optionally makes them a leader."""
+    if current_user.role not in ["admin", "hod"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized.")
     return assign_member(db=db, assignment=assignment)
 
 

@@ -27,8 +27,15 @@ class UserResponse(BaseModel):
     serial_number: str
     first_name: str
     last_name: str
+    phone_number: str
+    whatsapp_number: Optional[str] = None
+    dob: Optional[date] = None
+    location_zone: Optional[str] = None
+    contact_person_name: Optional[str] = None
+    contact_person_relation: Optional[str] = None
     role: str
     is_active: bool
+    cell_group_id: Optional[UUID] = None
 
     class Config:
         from_attributes = True
@@ -62,6 +69,7 @@ class UserDirectoryItem(BaseModel):
     first_name: str
     last_name: str
     phone_number: str
+    location_zone: Optional[str] = None
     role: str
     is_active: bool
     cell_group_id: Optional[UUID] = None
@@ -72,3 +80,8 @@ class UserDirectoryItem(BaseModel):
 
 class UserRoleUpdate(BaseModel):
     role: Literal["member", "usher", "leader", "hod", "admin"]
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str

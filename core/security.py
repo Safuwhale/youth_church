@@ -10,7 +10,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-here")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 15
 REFRESH_TOKEN_EXPIRE_DAYS = 30
-#ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # 7 days so leaders don't get logged out constantly
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Checks if the provided password matches the hash in the database."""
