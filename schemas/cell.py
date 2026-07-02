@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from uuid import UUID
-from schemas.user import UserResponse
+from schemas.user import UserDirectoryItem
 
 class CellCreate(BaseModel):
     name: str
@@ -39,5 +39,8 @@ class CellGroupResponse(BaseModel):
 class CellDashboardResponse(BaseModel):
     cell_name: str
     total_members: int
-    present_today: List[UserResponse]
-    absent_today: List[UserResponse]
+    leader_name: Optional[str] = None
+    leader_phone: Optional[str] = None
+    members: List[UserDirectoryItem]
+    present_today: List[UserDirectoryItem]
+    absent_today: List[UserDirectoryItem]

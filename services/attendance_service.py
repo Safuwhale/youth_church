@@ -140,6 +140,37 @@ def export_attendance_csv(db: Session, current_user: User):
     return output.getvalue()
 
 
+def export_service_attendance_csv(db: Session, current_user: User, service_id: str):
+    if current_user.role not in ["admin", "hod"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to export data.")
+
+    service = db.query(Service).filter(Service.id == service_id).first()
+    if not service:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found.")
+
+    logs = db.query(AttendanceLog).filter(AttendanceLog.service_id == service.id).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Date", "Service Title", "Serial Number", "First Name", "Last Name", "Check-in Time", "Method"])
+
+    for log in logs:
+        user = db.query(User).filter(User.id == log.user_id).first()
+        if not user:
+            continue
+        writer.writerow([
+            service.service_date,
+            service.title,
+            user.serial_number,
+            user.first_name,
+            user.last_name,
+            log.check_in_time.strftime("%Y-%m-%d %H:%M:%S") if log.check_in_time else "N/A",
+            _attendance_method_value(log.check_in_method),
+        ])
+
+    return output.getvalue()
+
+
 def get_service_attendance_detail(db: Session, current_user: User, service_id: str):
     if current_user.role not in ["admin", "hod"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized.")
@@ -170,6 +201,45 @@ def get_service_attendance_detail(db: Session, current_user: User, service_id: s
         "title": service.title,
         "service_date": service.service_date,
         "is_active": service.is_active,
+        "time_started": service.time_started,
+        "time_closed": service.time_closed,
         "attendance_count": len(attendees),
         "attendees": attendees,
+    }
+
+
+def get_usher_service_scans(db: Session, current_user: User, service_id: str):
+    if current_user.role not in ["usher", "hod"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized.")
+
+    service = db.query(Service).filter(Service.id == service_id).first()
+    if not service:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found.")
+
+    logs = (
+        db.query(AttendanceLog)
+        .filter(AttendanceLog.service_id == service.id, AttendanceLog.usher_id == current_user.id)
+        .order_by(AttendanceLog.check_in_time.desc())
+        .all()
+    )
+
+    scans = []
+    for log in logs:
+        user = db.query(User).filter(User.id == log.user_id).first()
+        if not user:
+            continue
+        scans.append({
+            "id": log.id,
+            "serial_number": user.serial_number,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "phone_number": user.phone_number,
+            "check_in_time": log.check_in_time,
+            "check_in_method": _attendance_method_value(log.check_in_method),
+        })
+
+    return {
+        "service_id": service.id,
+        "service_title": service.title,
+        "scans": scans,
     }

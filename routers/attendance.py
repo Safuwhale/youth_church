@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status, Response
 from sqlalchemy.orm import Session
 from schemas.attendance import AttendanceScan, AttendanceResponse, SelfCheckIn
-from services.attendance_service import process_scan, process_self_checkin, export_attendance_csv, get_service_attendance_detail
+from services.attendance_service import process_scan, process_self_checkin, export_attendance_csv, export_service_attendance_csv, get_service_attendance_detail, get_usher_service_scans
 from models import User
 from database import get_db
 from core.dependencies import get_current_user
@@ -36,13 +36,14 @@ def self_checkin(
 @router.get("/export", response_class=Response)
 def download_attendance_report(
     db: Session = Depends(get_db), 
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    service_id: str | None = None,
 ):
     """
     HOD ENDPOINT: 
     Downloads a CSV spreadsheet of the currently active service attendance.
     """
-    csv_data = export_attendance_csv(db=db, current_user=current_user)
+    csv_data = export_service_attendance_csv(db=db, current_user=current_user, service_id=service_id) if service_id else export_attendance_csv(db=db, current_user=current_user)
     
     return Response(
         content=csv_data,
@@ -58,3 +59,12 @@ def get_service_attendance(
     current_user: User = Depends(get_current_user),
 ):
     return get_service_attendance_detail(db=db, current_user=current_user, service_id=service_id)
+
+
+@router.get("/services/{service_id}/my-scans")
+def get_my_service_scans(
+    service_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return get_usher_service_scans(db=db, current_user=current_user, service_id=service_id)

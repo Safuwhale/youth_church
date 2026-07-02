@@ -3,6 +3,20 @@ from fastapi import HTTPException, status
 from models import User, CellGroup, Service, AttendanceLog
 from schemas.cell import CellCreate, CellUpdate, CellAssignment, CellMembersAssignment, CellMembersRemoval
 
+
+def _serialize_member(member: User):
+    return {
+        "id": member.id,
+        "serial_number": member.serial_number,
+        "first_name": member.first_name,
+        "last_name": member.last_name,
+        "phone_number": member.phone_number,
+        "location_zone": member.location_zone,
+        "role": member.role,
+        "is_active": member.is_active,
+        "cell_group_id": member.cell_group_id,
+    }
+
 def create_cell(db: Session, cell_data: CellCreate):
     new_cell = CellGroup(name=cell_data.name)
     db.add(new_cell)
@@ -58,16 +72,7 @@ def list_cell_members(db: Session, cell_group_id: str):
 
     members = db.query(User).filter(User.cell_group_id == cell.id).order_by(User.first_name.asc()).all()
     return [
-        {
-            "id": member.id,
-            "serial_number": member.serial_number,
-            "first_name": member.first_name,
-            "last_name": member.last_name,
-            "phone_number": member.phone_number,
-            "role": member.role,
-            "is_active": member.is_active,
-            "cell_group_id": member.cell_group_id,
-        }
+        _serialize_member(member)
         for member in members
     ]
 
@@ -126,9 +131,6 @@ def remove_members_bulk(db: Session, cell_group_id: str, payload: CellMembersRem
     return {"message": "Members removed successfully.", "removed_count": removed_count}
 
 def generate_leader_dashboard(db: Session, current_user: User):
-    if current_user.role not in ["leader", "admin", "hod"]:
-        raise HTTPException(status_code=403, detail="Not authorized to view cell dashboards.")
-        
     if not current_user.cell_group_id:
         raise HTTPException(status_code=400, detail="You are not assigned to a cell group.")
 
@@ -136,9 +138,12 @@ def generate_leader_dashboard(db: Session, current_user: User):
     
     # Get all active members of this cell
     cell_members = db.query(User).filter(
-        User.cell_group_id == cell.id, 
+        User.cell_group_id == cell.id,
         User.is_active == True
-    ).all()
+    ).order_by(User.first_name.asc()).all()
+
+    leaders = [member for member in cell_members if member.role == "leader"]
+    lead = leaders[0] if leaders else None
 
     # Find the active service
     active_service = db.query(Service).filter(Service.is_active == True).first()
@@ -165,6 +170,9 @@ def generate_leader_dashboard(db: Session, current_user: User):
     return {
         "cell_name": cell.name,
         "total_members": len(cell_members),
-        "present_today": present,
-        "absent_today": absent
+        "leader_name": f"{lead.first_name} {lead.last_name}" if lead else None,
+        "leader_phone": lead.phone_number if lead else None,
+        "members": [_serialize_member(member) for member in cell_members],
+        "present_today": [_serialize_member(member) for member in present],
+        "absent_today": [_serialize_member(member) for member in absent],
     }

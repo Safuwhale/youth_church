@@ -13,6 +13,7 @@ class ServiceResponse(BaseModel):
     service_date: date
     is_active: bool
     time_started: Optional[datetime] = None 
+    time_closed: Optional[datetime] = None
     attendance_count: Optional[int] = 0
 
     class Config:

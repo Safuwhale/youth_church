@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, status, HTTPException, Response, Cookie
 from sqlalchemy.orm import Session
-from schemas.user import UserCreate, UserResponse, UserLogin, TokenResponse, UserUpdate, UserDirectoryItem, UserRoleUpdate
+from schemas.user import UserCreate, UserResponse, UserLogin, TokenResponse, UserUpdate, UserDirectoryItem, UserRoleUpdate, PasswordChangeRequest
 from services.user_service import create_new_user
 from database import get_db
 from models import User
-from core.security import verify_password, create_access_token, create_refresh_token, SECRET_KEY, ALGORITHM
+from core.security import verify_password, create_access_token, create_refresh_token, SECRET_KEY, ALGORITHM, COOKIE_SECURE, get_password_hash
 from jose import jwt, JWTError
 from core.dependencies import get_current_user
 from sqlalchemy import or_  
@@ -43,12 +43,12 @@ def login_user(credentials: UserLogin, response: Response, db: Session = Depends
     access_token = create_access_token(data=token_data)
     refresh_token = create_refresh_token(data=token_data)
 
-    # The Magic: Set the Refresh Token as a secure, httpOnly cookie
+    # Set the Refresh Token as a secure, httpOnly cookie
     response.set_cookie(
         key="refresh_token",
         value=refresh_token,
         httponly=True,             # Critical: JavaScript cannot read this
-        secure=True,               # Change to True in production (requires HTTPS)
+        secure=COOKIE_SECURE,
         samesite="lax",            # CSRF protection
         max_age=30 * 24 * 60 * 60  # 30 days in seconds
     )
@@ -91,6 +91,24 @@ def update_profile(
     db.commit()
     db.refresh(current_user)
     return current_user
+
+
+@router.post("/change-password")
+def change_password(
+    payload: PasswordChangeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not verify_password(payload.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect.")
+
+    if len(payload.new_password.strip()) < 6:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="New password is too short.")
+
+    current_user.hashed_password = get_password_hash(payload.new_password)
+    db.commit()
+    db.refresh(current_user)
+    return {"message": "Password updated successfully."}
 
 @router.get("/search")
 def search_users(q: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
