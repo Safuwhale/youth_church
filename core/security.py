@@ -1,15 +1,15 @@
 import os
 from datetime import datetime, timedelta, timezone
-
+from dotenv import load_dotenv
 import bcrypt
 from jose import jwt
 
-
+load_dotenv()  # Load environment variables from .env file
 # In production, this goes in a .env file. For MVP, we define it here.
-SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-here")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 15
-REFRESH_TOKEN_EXPIRE_DAYS = 30
+SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = os.getenv("ALGORITHM")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS"))
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
