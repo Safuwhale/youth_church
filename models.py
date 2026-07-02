@@ -30,11 +30,11 @@ class User(Base):
     last_name = Column(String(50), nullable=False)
     phone_number = Column(String(20), unique=True, nullable=False)
     whatsapp_number = Column(String(20))
-    dob = Column(Date, nullable=True) # Relaxed for data migration
-    location_zone = Column(String(100), nullable=True) # Relaxed for data migration
-    contact_person_name = Column(String(100), nullable=True) # Relaxed for data migration
-    contact_person_relation = Column(String(50), nullable=True) # Relaxed for data migration
-    hashed_password = Column(String(255), nullable=False) # MUST have a hashed password
+    dob = Column(Date, nullable=True) 
+    location_zone = Column(String(100), nullable=True) 
+    contact_person_name = Column(String(100), nullable=True) 
+    contact_person_relation = Column(String(50), nullable=True)
+    hashed_password = Column(String(255), nullable=False)
     role = Column(String(20), default="member") 
     is_active = Column(Boolean, default=True) 
     cell_group_id = Column(UUID(as_uuid=True), ForeignKey("cell_groups.id", ondelete="SET NULL"))
