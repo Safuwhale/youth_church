@@ -13,11 +13,13 @@ app = FastAPI(
     version="1.0.0"
 )
 # --- CORS SETUP ---
-# This tells FastAPI to trust requests coming from your React development server
+# This tells FastAPI to trust requests coming from your React development server(frontend)
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+
+app = FastAPI(docs_url=None, redoc_url=None) # Disables the docs in production
 
 app.add_middleware(
     CORSMiddleware,
