@@ -8,8 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
-    title="Youth Church Attendance API",
-    description="API backend for the Two way QR check-in system.",
+    title="Attendance API",
+    description="API backend for QR check-in system.",
     version="1.0.0"
 )
 # --- CORS SETUP ---
@@ -18,6 +18,7 @@ origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "https://church-frontend-delta.vercel.app",
+    "https://horyc.vercel.app"
 ]
 
 app.add_middleware(
@@ -35,4 +36,4 @@ app.include_router(cells.router, prefix="/api/cells", tags=["Cell Groups"])
 
 @app.get("/")
 def read_root():
-    return {"status": "online", "message": "Youth Church API is running"}
+    return {"status": "online", "message": "Attendance API is running"}
