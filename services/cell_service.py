@@ -181,17 +181,10 @@ def generate_leader_dashboard(db: Session, current_user: User):
         while len(history_array) < 7:
             history_array.insert(0, "no_service")
 
-        # Create a dictionary matching UserDirectoryItem, but inject the history array
-        member_dict = {
-            "id": member.id,
-            "first_name": member.first_name,
-            "last_name": member.last_name,
-            "serial_number": member.serial_number,
-            "phone_number": member.phone_number,
-            "location_zone": member.location_zone,
-            "role": member.role,
-            "attendance_history": history_array
-        }
+        # Safely copy all existing fields from the database model
+        member_dict = member.__dict__.copy()
+        # Inject our calculated history array
+        member_dict["attendance_history"] = history_array
         enriched_members.append(member_dict)
 
     # For the today views (present/absent), we just look at the last service in the list
