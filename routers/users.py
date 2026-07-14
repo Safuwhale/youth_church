@@ -302,7 +302,7 @@ def verify_member_name(payload: NameVerifyRequest, db: Session = Depends(get_db)
         "message": "Verification Successful",
         "serial_number": user.serial_number,
         # Issue a temporary verification token so the next step is secure
-        "verification_token": create_access_token(data={"sub": str(user.id), "scope": "claim_profile"}) 
+        "verification_token": create_access_token(data={"sub": str(user.id), "role": user.role})
     }
 
 
