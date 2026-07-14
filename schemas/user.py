@@ -101,6 +101,11 @@ class UserDirectoryItem(BaseModel):
     is_active: bool
     cell_group_id: Optional[UUID] = None
     attendance_history: List[str] = []
+    sex: Optional[str] = None
+    profile_photo_url: Optional[str] = None
+    contact_person_name: Optional[str] = None
+    contact_person_phone: Optional[str] = None
+    cell_group_name: Optional[str] = None
 
     class Config:
         from_attributes = True
