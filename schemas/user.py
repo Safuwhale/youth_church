@@ -42,12 +42,15 @@ class UserResponse(BaseModel):
     serial_number: str
     first_name: str
     last_name: str
+    email: Optional[EmailStr] = None
+    sex: Optional[str] = None
     phone_number: str
     whatsapp_number: Optional[str] = None
     dob: Optional[date] = None
     location_zone: Optional[str] = None
     contact_person_name: Optional[str] = None
     contact_person_relation: Optional[str] = None
+    contact_person_phone: Optional[str] = None
     role: str
     is_active: bool
     cell_group_id: Optional[UUID] = None
@@ -69,6 +72,8 @@ class TokenResponse(BaseModel):
 class UserUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    sex: Optional[str] = None
     phone_number: Optional[str] = None
     whatsapp_number: Optional[str] = None
     whatsapp_same_as_phone: Optional[bool] = None
@@ -76,7 +81,9 @@ class UserUpdate(BaseModel):
     location_zone: Optional[str] = None
     contact_person_name: Optional[str] = None
     contact_person_relation: Optional[str] = None
-    new_password: Optional[str] = None 
+    contact_person_phone: Optional[str] = None
+    profile_photo_url: Optional[str] = None
+    new_password: Optional[str] = None
 
 
 class UserDirectoryItem(BaseModel):
