@@ -21,7 +21,7 @@ origins = [
     "https://horyc.vercel.app"
 ]
 
-app = FastAPI(docs_url=None, redoc_url=None) # Disables the docs in production
+#app = FastAPI(docs_url=None, redoc_url=None) # Disables the docs in production
 
 app.add_middleware(
     CORSMiddleware,
