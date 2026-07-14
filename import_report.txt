@@ -1,0 +1,10 @@
+=== HORYC MEMBER IMPORT REPORT ===
+Total Successfully Imported: 1
+Total Skipped: 0
+==================================
+
+--- SKIPPED MEMBERS ---
+None! All members were imported successfully.
+
+--- SUCCESSFULLY ADDED MEMBERS ---
+ID: HORYC-133 | Name: Usher PORTAL | Phone: 08123456789
