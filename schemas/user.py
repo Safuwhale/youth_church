@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, validator, EmailStr
 from datetime import date
-from typing import Optional, Literal
+from typing import Optional, Literal, List
 from uuid import UUID
 
 
@@ -89,6 +89,7 @@ class UserDirectoryItem(BaseModel):
     role: str
     is_active: bool
     cell_group_id: Optional[UUID] = None
+    attendance_history: List[str] = []
 
     class Config:
         from_attributes = True
