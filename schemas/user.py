@@ -51,6 +51,7 @@ class UserResponse(BaseModel):
     role: str
     is_active: bool
     cell_group_id: Optional[UUID] = None
+    profile_photo_url: Optional[str] = None
 
     class Config:
         from_attributes = True
