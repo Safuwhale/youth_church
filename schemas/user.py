@@ -29,6 +29,10 @@ class UserCreate(BaseModel):
     location_zone: str = Field(..., example="Wuse 2")
     contact_person_name: str = Field(..., example="Mrs. Fyamya")
     contact_person_relation: str = Field(..., example="Mother")
+    email: Optional[EmailStr] = None
+    sex: Optional[str] = None
+    contact_person_phone: Optional[str] = None
+    profile_photo_url: Optional[str] = None
 
     @validator('whatsapp_number', always=True)
     def set_whatsapp_number(cls, v, values):
