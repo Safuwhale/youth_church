@@ -5,9 +5,10 @@ from schemas.user import (
     UserDirectoryItem, UserRoleUpdate, PasswordChangeRequest,
     PhoneLookupRequest, NameVerifyRequest, ClaimProfileRequest
 )
+from sqlalchemy import desc
 from services.user_service import create_new_user
 from database import get_db
-from models import User
+from models import User, CellGroup, Service, AttendanceLog
 from core.security import verify_password, create_access_token, create_refresh_token, SECRET_KEY, ALGORITHM, COOKIE_SECURE, get_password_hash
 from jose import jwt, JWTError
 from core.dependencies import get_current_user
@@ -161,7 +162,45 @@ def list_directory_users(
             )
         )
 
-    return query.order_by(User.created_at.desc()).all()
+    users = query.order_by(User.created_at.desc()).all()
+    
+    #Fetch last 7 services
+    last_7_services = db.query(Service).order_by(desc(Service.service_date)).limit(7).all()
+    last_7_services.reverse()
+    service_ids = [s.id for s in last_7_services]
+    
+    #Fetch bulk attendance logs for fast streak calculation
+    user_ids = [u.id for u in users]
+    bulk_logs = db.query(AttendanceLog).filter(
+        AttendanceLog.service_id.in_(service_ids),
+        AttendanceLog.user_id.in_(user_ids)
+    ).all()
+    
+    attended_lookup = {(log.user_id, log.service_id) for log in bulk_logs}
+    
+    #Fetch Cell Groups for mapping names
+    cells = db.query(CellGroup).all()
+    cell_map = {c.id: c.name for c in cells}
+
+    # 4. Compile the rich payload
+    enriched_users = []
+    for u in users:
+        history_array = []
+        for svc in last_7_services:
+            if (u.id, svc.id) in attended_lookup:
+                history_array.append("attended")
+            else:
+                history_array.append("absent")
+        
+        while len(history_array) < 7:
+            history_array.insert(0, "no_service")
+            
+        user_dict = u.__dict__.copy()
+        user_dict["attendance_history"] = history_array
+        user_dict["cell_group_name"] = cell_map.get(u.cell_group_id, "Unassigned")
+        enriched_users.append(user_dict)
+        
+    return enriched_users
 
 
 @router.patch("/{user_id}/role", response_model=UserDirectoryItem)
