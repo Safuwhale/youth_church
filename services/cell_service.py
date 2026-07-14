@@ -143,7 +143,7 @@ def generate_leader_dashboard(db: Session, current_user: User):
         raise HTTPException(status_code=404, detail="Cell group not found.")
 
     # 1. Get the last 7 active services, ordered oldest to newest
-    last_7_services = db.query(Service).filter(Service.is_active == True).order_by(desc(Service.service_date)).limit(7).all()
+    last_7_services = db.query(Service).order_by(desc(Service.service_date)).limit(7).all()
     # Reverse to chronological order (oldest first, newest last) for the UI dots
     last_7_services.reverse()
     
