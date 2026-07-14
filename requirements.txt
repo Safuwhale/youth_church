@@ -1,4 +1,3 @@
--e git+ssh://git@github.com/safuwhale/accorder.git@d326bdd45dd1a95e5f0ab9a3c4294c041386235b#egg=accorder
 alembic==1.18.4
 annotated-doc==0.0.4
 annotated-types==0.7.0
