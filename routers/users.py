@@ -1,6 +1,10 @@
 from fastapi import APIRouter, Depends, status, HTTPException, Response, Cookie
 from sqlalchemy.orm import Session
-from schemas.user import UserCreate, UserResponse, UserLogin, TokenResponse, UserUpdate, UserDirectoryItem, UserRoleUpdate, PasswordChangeRequest
+from schemas.user import (
+    UserCreate, UserResponse, UserLogin, TokenResponse, UserUpdate, 
+    UserDirectoryItem, UserRoleUpdate, PasswordChangeRequest,
+    PhoneLookupRequest, NameVerifyRequest, ClaimProfileRequest
+)
 from services.user_service import create_new_user
 from database import get_db
 from models import User
@@ -8,6 +12,22 @@ from core.security import verify_password, create_access_token, create_refresh_t
 from jose import jwt, JWTError
 from core.dependencies import get_current_user
 from sqlalchemy import or_  
+import os
+import time
+import cloudinary
+import cloudinary.utils
+from dotenv import load_dotenv
+from thefuzz import fuzz
+
+load_dotenv()
+
+# --- CLOUDINARY CONFIGURATION ---
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+    secure=True
+)
 
 router = APIRouter()
 
@@ -235,3 +255,104 @@ def refresh_access_token(response: Response, refresh_token: str = Cookie(None), 
         # If the token is expired or tampered with, clear the cookie and force a login
         response.delete_cookie("refresh_token")
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token.")
+    
+    # --- NEW ONBOARDING ENDPOINTS ---
+
+@router.post("/lookup")
+def lookup_member_phone(payload: PhoneLookupRequest, db: Session = Depends(get_db)):
+    """
+    Step 1 of Onboarding: Checks if phone exists and returns a masked name.
+    """
+    user = db.query(User).filter(User.phone_number == payload.phone_number).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="Phone number not found in our directory.")
+        
+    if user.is_claimed:
+        raise HTTPException(status_code=400, detail="This account has already been claimed. Please log in.")
+        
+    # Create a masked name: "Nandom Fyamya" -> "N***** F*****"
+    def mask_word(word):
+        if not word or len(word) <= 1: return word
+        return word[0] + ("*" * (len(word) - 1))
+        
+    masked_first = mask_word(user.first_name)
+    masked_last = mask_word(user.last_name)
+    masked_full = f"{masked_first} {masked_last}"
+    
+    return {"masked_name": masked_full}
+
+
+@router.post("/verify-name")
+def verify_member_name(payload: NameVerifyRequest, db: Session = Depends(get_db)):
+    """
+    Step 2 of Onboarding: Fuzzy matches the typed name against the database name.
+    """
+    user = db.query(User).filter(User.phone_number == payload.phone_number).first()
+    if not user or user.is_claimed:
+        raise HTTPException(status_code=400, detail="Invalid request.")
+
+    db_name = f"{user.first_name} {user.middle_name or ''} {user.last_name}".strip()
+    match_score = fuzz.token_set_ratio(payload.typed_name.lower(), db_name.lower())
+    
+    if match_score < 80:
+        raise HTTPException(status_code=400, detail="Name does not match our records. Please try again or contact support.")
+        
+    return {
+        "message": "Verification Successful",
+        "serial_number": user.serial_number,
+        # Issue a temporary verification token so the next step is secure
+        "verification_token": create_access_token(data={"sub": str(user.id), "scope": "claim_profile"}) 
+    }
+
+
+@router.put("/claim")
+def claim_user_profile(
+    payload: ClaimProfileRequest, 
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user) 
+):
+    """
+    Step 3 of Onboarding: Updates missing data and locks the account.
+    """
+    if current_user.phone_number != payload.phone_number:
+        raise HTTPException(status_code=403, detail="Token mismatch.")
+        
+    if current_user.is_claimed:
+        raise HTTPException(status_code=400, detail="Account already claimed.")
+        
+    current_user.email = payload.email
+    current_user.sex = payload.sex
+    current_user.contact_person_phone = payload.contact_person_phone
+    if payload.profile_photo_url:
+        current_user.profile_photo_url = payload.profile_photo_url
+        
+    current_user.is_claimed = True
+    db.commit()
+    return {"message": "Account successfully claimed. You may now log in."}
+
+
+# --- CLOUDINARY UPLOAD SIGNATURE ---
+
+@router.get("/generate-upload-signature")
+def generate_upload_signature():
+    """
+    Returns a secure signature to the React frontend to allow direct image uploads.
+    """
+    timestamp = int(time.time())
+    folder = "horyc_profiles"
+    
+    params_to_sign = {
+        "timestamp": timestamp,
+        "folder": folder
+    }
+    
+    signature = cloudinary.utils.api_sign_request(params_to_sign, os.getenv("CLOUDINARY_API_SECRET"))
+    
+    return {
+        "timestamp": timestamp,
+        "signature": signature,
+        "folder": folder,
+        "api_key": os.getenv("CLOUDINARY_API_KEY"),
+        "cloud_name": os.getenv("CLOUDINARY_CLOUD_NAME")
+    }

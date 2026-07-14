@@ -1,7 +1,22 @@
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, EmailStr
 from datetime import date
 from typing import Optional, Literal
 from uuid import UUID
+
+
+class PhoneLookupRequest(BaseModel):
+    phone_number: str
+
+class NameVerifyRequest(BaseModel):
+    phone_number: str
+    typed_name: str
+
+class ClaimProfileRequest(BaseModel):
+    phone_number: str
+    email: Optional[EmailStr] = None
+    sex: Optional[str] = None
+    contact_person_phone: Optional[str] = None
+    profile_photo_url: Optional[str] = None
 
 # Payload expected from the React frontend
 class UserCreate(BaseModel):
