@@ -15,6 +15,7 @@ from core.dependencies import get_current_user
 from sqlalchemy import or_  
 import os
 import time
+from datetime import datetime
 import cloudinary
 import cloudinary.utils
 from dotenv import load_dotenv
@@ -222,45 +223,6 @@ def update_user_role(
     db.refresh(user)
     return user
 
-
-###########delete later
-from core.security import get_password_hash # Ensure this is imported!
-
-@router.post("/seed-usher")
-def create_test_usher(db: Session = Depends(get_db)):
-    """
-    Temporary endpoint to quickly create a test Usher profile.
-    DELETE THIS BEFORE GOING TO PRODUCTION!
-    """
-    # Check if our test usher already exists
-    existing_usher = db.query(User).filter(User.phone_number == "08011110000").first()
-    
-    if existing_usher:
-        return {
-            "message": "Usher already exists!", 
-            "login_phone": "08011110000", 
-            "login_password": "password123"
-        }
-        
-    # Create the test usher
-    new_usher = User(
-        first_name="Test",
-        last_name="Usher",
-        phone_number="08011110000",
-        hashed_password=get_password_hash("password123"), # Assumes you have this hashing utility
-        serial_number="HORYC-999",
-        role="usher",
-        is_active=True
-    )
-    
-    db.add(new_usher)
-    db.commit()
-    
-    return {
-        "message": "Test Usher successfully created!",
-        "login_phone": "08011110000",
-        "login_password": "password123"
-    }
 @router.post("/refresh")
 def refresh_access_token(response: Response, refresh_token: str = Cookie(None), db: Session = Depends(get_db)):
     """
@@ -374,16 +336,21 @@ def claim_user_profile(
 # --- CLOUDINARY UPLOAD SIGNATURE ---
 
 @router.get("/generate-upload-signature")
-def generate_upload_signature():
+def generate_upload_signature(identifier: str = "new_user"):
     """
     Returns a secure signature to the React frontend to allow direct image uploads.
     """
+    # Create the timestamped file name (e.g., user_0810000000_20260715_120737)
+    timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    unique_filename = f"user_{identifier}_{timestamp_str}"
+    
     timestamp = int(time.time())
     folder = "horyc_profiles"
     
     params_to_sign = {
         "timestamp": timestamp,
-        "folder": folder
+        "folder": folder,
+        "public_id": unique_filename
     }
     
     signature = cloudinary.utils.api_sign_request(params_to_sign, os.getenv("CLOUDINARY_API_SECRET"))
@@ -392,6 +359,30 @@ def generate_upload_signature():
         "timestamp": timestamp,
         "signature": signature,
         "folder": folder,
+        "public_id": unique_filename,
         "api_key": os.getenv("CLOUDINARY_API_KEY"),
         "cloud_name": os.getenv("CLOUDINARY_CLOUD_NAME")
+    }
+
+from pydantic import BaseModel
+class PhotoUpdate(BaseModel):
+    profile_photo_url: str    
+@router.patch("/{user_id}/photo")
+def update_user_photo(user_id: str, payload: PhotoUpdate, db: Session = Depends(get_db)):
+    """
+    Updates a user's profile photo. 
+    Used immediately after a new user registers and uploads their photo to Cloudinary.
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+        
+    user.profile_photo_url = payload.profile_photo_url
+    db.commit()
+    db.refresh(user)
+    
+    return {
+        "message": "Profile photo updated successfully.", 
+        "profile_photo_url": user.profile_photo_url
     }
