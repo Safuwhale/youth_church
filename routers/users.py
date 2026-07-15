@@ -324,6 +324,11 @@ def claim_user_profile(
         
     current_user.email = payload.email
     current_user.sex = payload.sex
+    current_user.dob = payload.dob
+    current_user.location_zone = payload.location_zone
+    current_user.whatsapp_number = payload.whatsapp_number
+    current_user.contact_person_name = payload.contact_person_name
+    current_user.contact_person_relation = payload.contact_person_relation
     current_user.contact_person_phone = payload.contact_person_phone
     if payload.profile_photo_url:
         current_user.profile_photo_url = payload.profile_photo_url

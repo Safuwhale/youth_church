@@ -13,21 +13,26 @@ class NameVerifyRequest(BaseModel):
 
 class ClaimProfileRequest(BaseModel):
     phone_number: str
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     sex: Optional[str] = None
+    dob: Optional[date] = None                    
+    location_zone: Optional[str] = None          
+    whatsapp_number: Optional[str] = None        
+    contact_person_name: Optional[str] = None     
+    contact_person_relation: Optional[str] = None 
     contact_person_phone: Optional[str] = None
     profile_photo_url: Optional[str] = None
 
 # Payload expected from the React frontend
 class UserCreate(BaseModel):
-    first_name: str = Field(..., example="Nandom")
-    last_name: str = Field(..., example="Fyamya")
+    first_name: str = Field(..., example="John")
+    last_name: str = Field(..., example="Doe")
     phone_number: str = Field(..., example="08012345678")
     whatsapp_number: Optional[str] = None
     whatsapp_same_as_phone: bool = True 
     dob: date = Field(..., example="2003-05-14")
     location_zone: str = Field(..., example="Wuse 2")
-    contact_person_name: str = Field(..., example="Mrs. Fyamya")
+    contact_person_name: str = Field(..., example="Mrs. Doe")
     contact_person_relation: str = Field(..., example="Mother")
     email: Optional[EmailStr] = None
     sex: Optional[str] = None
