@@ -71,7 +71,7 @@ def login_user(credentials: UserLogin, response: Response, db: Session = Depends
         value=refresh_token,
         httponly=True,             # Critical: JavaScript cannot read this
         secure=COOKIE_SECURE,
-        samesite="lax",            # CSRF protection
+        samesite="none",            # CSRF protection
         max_age=30 * 24 * 60 * 60  # 30 days in seconds
     )
 
@@ -257,7 +257,7 @@ def refresh_access_token(response: Response, refresh_token: str = Cookie(None), 
         response.delete_cookie("refresh_token")
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token.")
     
-    # --- NEW ONBOARDING ENDPOINTS ---
+    # --- ONBOARDING ENDPOINTS ---
 
 @router.post("/lookup")
 def lookup_member_phone(payload: PhoneLookupRequest, db: Session = Depends(get_db)):
