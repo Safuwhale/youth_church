@@ -27,7 +27,7 @@ class ClaimProfileRequest(BaseModel):
 class UserCreate(BaseModel):
     first_name: str = Field(..., example="John")
     last_name: str = Field(..., example="Doe")
-    phone_number: str = Field(..., example="08012345678")
+    phone_number: str = Field(..., example="08000000000")
     whatsapp_number: Optional[str] = None
     whatsapp_same_as_phone: bool = True 
     dob: date = Field(..., example="2003-05-14")

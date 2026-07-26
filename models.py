@@ -29,7 +29,7 @@ class User(Base):
     first_name = Column(String(50), nullable=False)
     middle_name = Column(String(50), nullable=True)
     last_name = Column(String(50), nullable=True)
-    phone_number = Column(String(20), unique=True, nullable=False)
+    phone_number = Column(String(20), nullable=False)
     whatsapp_number = Column(String(20))
     dob = Column(Date, nullable=True) 
     location_zone = Column(String(100), nullable=True) 
