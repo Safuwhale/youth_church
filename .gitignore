@@ -203,7 +203,8 @@ cython_debug/
 # Temporary file for partial code execution
 tempCodeRunnerFile.py
 import_members.py
-
+import_report.txt
+Members details.xlsx
 # Ruff stuff:
 .ruff_cache/
 

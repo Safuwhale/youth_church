@@ -13,22 +13,31 @@ class NameVerifyRequest(BaseModel):
 
 class ClaimProfileRequest(BaseModel):
     phone_number: str
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     sex: Optional[str] = None
+    dob: Optional[date] = None                    
+    location_zone: Optional[str] = None          
+    whatsapp_number: Optional[str] = None        
+    contact_person_name: Optional[str] = None     
+    contact_person_relation: Optional[str] = None 
     contact_person_phone: Optional[str] = None
     profile_photo_url: Optional[str] = None
 
 # Payload expected from the React frontend
 class UserCreate(BaseModel):
-    first_name: str = Field(..., example="Nandom")
-    last_name: str = Field(..., example="Fyamya")
-    phone_number: str = Field(..., example="08012345678")
+    first_name: str = Field(..., example="John")
+    last_name: str = Field(..., example="Doe")
+    phone_number: str = Field(..., example="08000000000")
     whatsapp_number: Optional[str] = None
     whatsapp_same_as_phone: bool = True 
     dob: date = Field(..., example="2003-05-14")
     location_zone: str = Field(..., example="Wuse 2")
-    contact_person_name: str = Field(..., example="Mrs. Fyamya")
+    contact_person_name: str = Field(..., example="Mrs. Doe")
     contact_person_relation: str = Field(..., example="Mother")
+    email: Optional[EmailStr] = None
+    sex: Optional[str] = None
+    contact_person_phone: Optional[str] = None
+    profile_photo_url: Optional[str] = None
 
     @validator('whatsapp_number', always=True)
     def set_whatsapp_number(cls, v, values):
@@ -42,12 +51,15 @@ class UserResponse(BaseModel):
     serial_number: str
     first_name: str
     last_name: str
+    email: Optional[EmailStr] = None
+    sex: Optional[str] = None
     phone_number: str
     whatsapp_number: Optional[str] = None
     dob: Optional[date] = None
     location_zone: Optional[str] = None
     contact_person_name: Optional[str] = None
     contact_person_relation: Optional[str] = None
+    contact_person_phone: Optional[str] = None
     role: str
     is_active: bool
     cell_group_id: Optional[UUID] = None
@@ -69,6 +81,8 @@ class TokenResponse(BaseModel):
 class UserUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    sex: Optional[str] = None
     phone_number: Optional[str] = None
     whatsapp_number: Optional[str] = None
     whatsapp_same_as_phone: Optional[bool] = None
@@ -76,7 +90,9 @@ class UserUpdate(BaseModel):
     location_zone: Optional[str] = None
     contact_person_name: Optional[str] = None
     contact_person_relation: Optional[str] = None
-    new_password: Optional[str] = None 
+    contact_person_phone: Optional[str] = None
+    profile_photo_url: Optional[str] = None
+    new_password: Optional[str] = None
 
 
 class UserDirectoryItem(BaseModel):
@@ -90,6 +106,11 @@ class UserDirectoryItem(BaseModel):
     is_active: bool
     cell_group_id: Optional[UUID] = None
     attendance_history: List[str] = []
+    sex: Optional[str] = None
+    profile_photo_url: Optional[str] = None
+    contact_person_name: Optional[str] = None
+    contact_person_phone: Optional[str] = None
+    cell_group_name: Optional[str] = None
 
     class Config:
         from_attributes = True

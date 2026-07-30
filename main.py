@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from database import engine, Base
-from routers import users, services, attendance, cells
+from routers import users, services, attendance, cells,health
 import models
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -35,6 +35,7 @@ app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(services.router, prefix="/api/services", tags=["Services"])
 app.include_router(attendance.router, prefix="/api/attendance", tags=["Attendance (Scanner)"])
 app.include_router(cells.router, prefix="/api/cells", tags=["Cell Groups"])
+app.include_router(health.router, prefix="/api")
 
 @app.get("/")
 def read_root():
