@@ -7,7 +7,7 @@ from sqlalchemy import text
 from database import get_db
 
 # Create a router (you can adjust the prefix to match your app structure)
-router = APIRouter(prefix="/api", tags=["System Health"])
+router = APIRouter( tags=["System Health"])
 
 # 1. Fetch the secret from Render's Environment Variables
 # It defaults to a test string so it won't crash if you test locally before setting the env var.
