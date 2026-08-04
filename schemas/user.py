@@ -78,6 +78,11 @@ class TokenResponse(BaseModel):
     token_type: str
     user: UserResponse
 
+
+class RefreshTokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+
 class UserUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None

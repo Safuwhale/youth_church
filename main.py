@@ -3,9 +3,11 @@ from database import engine, Base
 from routers import users, services, attendance, cells,health
 import models
 from fastapi.middleware.cors import CORSMiddleware
+import os
 
 # Create tables if they don't exist
-Base.metadata.create_all(bind=engine)
+if os.getenv("RUN_CREATE_ALL", "false").lower() == "true":
+    Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Attendance API",

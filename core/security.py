@@ -2,6 +2,8 @@ import os
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 import bcrypt
+import hashlib
+import secrets
 from jose import jwt
 
 load_dotenv()  # Load environment variables from .env file
@@ -38,12 +40,13 @@ def create_access_token(data: dict) -> str:
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-def create_refresh_token(data: dict):
+def create_refresh_token(data: dict | None = None):
     """
-    Generates a long-lived JWT specifically for refreshing the access token.
+    Generates a refresh token string.
     """
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    return secrets.token_urlsafe(64)
+
+
+def hash_refresh_token(token: str) -> str:
+    """Creates a stable digest for storing refresh tokens server-side."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
