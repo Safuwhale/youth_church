@@ -284,7 +284,7 @@ def refresh_access_token(response: Response, refresh_token: str = Cookie(None), 
             value=new_refresh,
             httponly=True,
             secure=COOKIE_SECURE,
-            samesite="none" if COOKIE_SECURE else "lax",
+            samesite="none",
             max_age=30 * 24 * 60 * 60,
         )
 
