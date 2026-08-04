@@ -30,6 +30,10 @@ def get_current_user(token: HTTPAuthorizationCredentials = Depends(security), db
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise credentials_exception
+
+    token_version = payload.get("token_version")
+    if token_version is None or token_version != user.token_version:
+        raise credentials_exception
         
     # Security check: Are they soft-deleted?
     if not user.is_active:

@@ -3,19 +3,19 @@ from sqlalchemy.orm import Session
 from schemas.user import (
     UserCreate, UserResponse, UserLogin, TokenResponse, UserUpdate, 
     UserDirectoryItem, UserRoleUpdate, PasswordChangeRequest,
-    PhoneLookupRequest, NameVerifyRequest, ClaimProfileRequest
+    PhoneLookupRequest, NameVerifyRequest, ClaimProfileRequest, RefreshTokenResponse
 )
 from sqlalchemy import desc
 from services.user_service import create_new_user
 from database import get_db
 from models import User, CellGroup, Service, AttendanceLog
-from core.security import verify_password, create_access_token, create_refresh_token, SECRET_KEY, ALGORITHM, COOKIE_SECURE, get_password_hash
-from jose import jwt, JWTError
+from models import RefreshToken
+from core.security import verify_password, create_access_token, create_refresh_token, hash_refresh_token, COOKIE_SECURE, get_password_hash, REFRESH_TOKEN_EXPIRE_DAYS
 from core.dependencies import get_current_user
 from sqlalchemy import or_  
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import cloudinary
 import cloudinary.utils
 from dotenv import load_dotenv
@@ -61,9 +61,26 @@ def login_user(credentials: UserLogin, response: Response, db: Session = Depends
         )
 
     # Generate BOTH tokens
-    token_data = {"sub": str(user.id), "role": user.role}
+    token_data = {"sub": str(user.id), "role": user.role, "token_version": user.token_version}
     access_token = create_access_token(data=token_data)
     refresh_token = create_refresh_token(data=token_data)
+
+    # Revoke any existing refresh tokens for this user before issuing a new one
+    existing_tokens = db.query(RefreshToken).filter(
+        RefreshToken.user_id == user.id,
+        RefreshToken.revoked_at.is_(None),
+    ).all()
+    for token in existing_tokens:
+        token.revoked_at = datetime.now(timezone.utc)
+        db.add(token)
+
+    refresh_record = RefreshToken(
+        user_id=user.id,
+        token_hash=hash_refresh_token(refresh_token),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+    )
+    db.add(refresh_record)
+    db.commit()
 
     # Set the Refresh Token as a secure, httpOnly cookie
     response.set_cookie(
@@ -71,7 +88,7 @@ def login_user(credentials: UserLogin, response: Response, db: Session = Depends
         value=refresh_token,
         httponly=True,             # Critical: JavaScript cannot read this
         secure=COOKIE_SECURE,
-        samesite="none",            # CSRF protection
+        samesite="none" if COOKIE_SECURE else "lax",
         max_age=30 * 24 * 60 * 60  # 30 days in seconds
     )
 
@@ -128,6 +145,7 @@ def change_password(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="New password is too short.")
 
     current_user.hashed_password = get_password_hash(payload.new_password)
+    current_user.token_version += 1
     db.commit()
     db.refresh(current_user)
     return {"message": "Password updated successfully."}
@@ -223,7 +241,7 @@ def update_user_role(
     db.refresh(user)
     return user
 
-@router.post("/refresh")
+@router.post("/refresh", response_model=RefreshTokenResponse)
 def refresh_access_token(response: Response, refresh_token: str = Cookie(None), db: Session = Depends(get_db)):
     """
     Reads the httpOnly refresh_token cookie and returns a new access_token if valid.
@@ -232,32 +250,78 @@ def refresh_access_token(response: Response, refresh_token: str = Cookie(None), 
         raise HTTPException(status_code=401, detail="Refresh token missing. Please log in again.")
         
     try:
-        # Decode the refresh token cookie
-        payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: str = payload.get("sub")
-        
-        if user_id is None:
-            raise HTTPException(status_code=401, detail="Invalid token payload.")
-            
-        # Verify user still exists and is not banned
-        user = db.query(User).filter(User.id == user_id).first()
+        refresh_hash = hash_refresh_token(refresh_token)
+        token_row = db.query(RefreshToken).filter(
+            RefreshToken.token_hash == refresh_hash,
+            RefreshToken.revoked_at.is_(None),
+        ).first()
+
+        if not token_row:
+            raise HTTPException(status_code=401, detail="Invalid or revoked refresh token.")
+
+        if token_row.expires_at < datetime.now(timezone.utc):
+            raise HTTPException(status_code=401, detail="Refresh token expired.")
+
+        user = db.query(User).filter(User.id == token_row.user_id).first()
         if not user or not user.is_active:
             raise HTTPException(status_code=401, detail="User account is inactive.")
 
-        # Generate a fresh, short-lived Access Token
-        new_access_token = create_access_token(data={"sub": str(user.id), "role": user.role})
-        
+        # Rotate the refresh token on every refresh request.
+        token_row.revoked_at = datetime.now(timezone.utc)
+        db.add(token_row)
+
+        new_refresh = create_refresh_token()
+        new_row = RefreshToken(
+            user_id=user.id,
+            token_hash=hash_refresh_token(new_refresh),
+            expires_at=datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+        )
+        db.add(new_row)
+        db.commit()
+
+        response.set_cookie(
+            key="refresh_token",
+            value=new_refresh,
+            httponly=True,
+            secure=COOKIE_SECURE,
+            samesite="none" if COOKIE_SECURE else "lax",
+            max_age=30 * 24 * 60 * 60,
+        )
+
+        new_access_token = create_access_token(data={"sub": str(user.id), "role": user.role, "token_version": user.token_version})
         return {
-            "access_token": new_access_token, 
+            "access_token": new_access_token,
             "token_type": "bearer"
         }
-        
-    except JWTError:
-        # If the token is expired or tampered with, clear the cookie and force a login
+
+    except HTTPException:
         response.delete_cookie("refresh_token")
-        raise HTTPException(status_code=401, detail="Invalid or expired refresh token.")
+        raise
     
     # --- ONBOARDING ENDPOINTS ---
+
+@router.post("/logout")
+def logout(response: Response, refresh_token: str = Cookie(None), db: Session = Depends(get_db)):
+    if refresh_token:
+        refresh_hash = hash_refresh_token(refresh_token)
+        token_row = db.query(RefreshToken).filter(
+            RefreshToken.token_hash == refresh_hash,
+            RefreshToken.revoked_at.is_(None),
+        ).first()
+
+        if token_row:
+            token_row.revoked_at = datetime.now(timezone.utc)
+            db.add(token_row)
+
+            user = db.query(User).filter(User.id == token_row.user_id).first()
+            if user:
+                user.token_version += 1
+                db.add(user)
+
+            db.commit()
+
+    response.delete_cookie("refresh_token")
+    return {"message": "Logged out"}
 
 @router.post("/lookup")
 def lookup_member_phone(payload: PhoneLookupRequest, db: Session = Depends(get_db)):
