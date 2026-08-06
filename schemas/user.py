@@ -121,6 +121,19 @@ class UserDirectoryItem(BaseModel):
         from_attributes = True
 
 
+class UserSearchItem(BaseModel):
+    id: UUID
+    serial_number: str
+    first_name: str
+    last_name: str
+    phone_number: str
+    role: str
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+
 class UserRoleUpdate(BaseModel):
     role: Literal["member", "usher", "leader", "hod", "admin"]
 

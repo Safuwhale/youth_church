@@ -54,7 +54,19 @@ def delete_service(db: Session, service_id: str):
 
 def get_all_services(db: Session):
     services = db.query(Service).order_by(Service.service_date.desc()).all()
-    # Dynamically attach attendance count so the dashboard can display it
+
+    service_ids = [s.id for s in services]
+    attendance_counts = {}
+    if service_ids:
+        rows = (
+            db.query(AttendanceLog.service_id, func.count(AttendanceLog.id))
+            .filter(AttendanceLog.service_id.in_(service_ids))
+            .group_by(AttendanceLog.service_id)
+            .all()
+        )
+        attendance_counts = {service_id: count for service_id, count in rows}
+
     for s in services:
-        s.attendance_count = db.query(AttendanceLog).filter(AttendanceLog.service_id == s.id).count()
+        s.attendance_count = int(attendance_counts.get(s.id, 0))
+
     return services

@@ -3,7 +3,8 @@ from sqlalchemy.orm import Session
 from schemas.user import (
     UserCreate, UserResponse, UserLogin, TokenResponse, UserUpdate, 
     UserDirectoryItem, UserRoleUpdate, PasswordChangeRequest,
-    PhoneLookupRequest, NameVerifyRequest, ClaimProfileRequest, RefreshTokenResponse
+    PhoneLookupRequest, NameVerifyRequest, ClaimProfileRequest, RefreshTokenResponse,
+    UserSearchItem,
 )
 from sqlalchemy import desc
 from services.user_service import create_new_user
@@ -150,13 +151,30 @@ def change_password(
     db.refresh(current_user)
     return {"message": "Password updated successfully."}
 
-@router.get("/search")
+@router.get("/search", response_model=list[UserSearchItem])
 def search_users(q: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if current_user.role not in ["usher", "hod"]:
         raise HTTPException(status_code=403)
-    return db.query(User).filter(
-        or_(User.first_name.ilike(f"%{q}%"), User.last_name.ilike(f"%{q}%"), User.serial_number.ilike(f"%{q}%"))
-    ).limit(10).all()
+
+    normalized_q = q.strip()
+    if not normalized_q:
+        return []
+
+    search = f"%{normalized_q}%"
+    return (
+        db.query(User)
+        .filter(
+            or_(
+                User.first_name.ilike(search),
+                User.last_name.ilike(search),
+                User.serial_number.ilike(search),
+                User.phone_number.ilike(search),
+            )
+        )
+        .order_by(User.first_name.asc(), User.last_name.asc())
+        .limit(10)
+        .all()
+    )
 
 
 @router.get("/directory", response_model=list[UserDirectoryItem])
