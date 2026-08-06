@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
+from sqlalchemy import or_
 from fastapi import HTTPException, status
 from models import User, Service, AttendanceLog
 from schemas.attendance import AttendanceScan
@@ -120,14 +121,18 @@ def export_attendance_csv(db: Session, current_user: User):
     if not active_service:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="There is no active service to export.")
 
-    logs = db.query(AttendanceLog).filter(AttendanceLog.service_id == active_service.id).all()
+    rows = (
+        db.query(AttendanceLog, User)
+        .join(User, User.id == AttendanceLog.user_id)
+        .filter(AttendanceLog.service_id == active_service.id)
+        .all()
+    )
 
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["Date", "Service Title", "Serial Number", "First Name", "Last Name", "Check-in Time", "Method"])
 
-    for log in logs:
-        user = db.query(User).filter(User.id == log.user_id).first()
+    for log, user in rows:
         writer.writerow([
             active_service.service_date,
             active_service.title,
@@ -149,16 +154,18 @@ def export_service_attendance_csv(db: Session, current_user: User, service_id: s
     if not service:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found.")
 
-    logs = db.query(AttendanceLog).filter(AttendanceLog.service_id == service.id).all()
+    rows = (
+        db.query(AttendanceLog, User)
+        .join(User, User.id == AttendanceLog.user_id)
+        .filter(AttendanceLog.service_id == service.id)
+        .all()
+    )
 
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["Date", "Service Title", "Serial Number", "First Name", "Last Name", "Check-in Time", "Method"])
 
-    for log in logs:
-        user = db.query(User).filter(User.id == log.user_id).first()
-        if not user:
-            continue
+    for log, user in rows:
         writer.writerow([
             service.service_date,
             service.title,
@@ -172,7 +179,7 @@ def export_service_attendance_csv(db: Session, current_user: User, service_id: s
     return output.getvalue()
 
 
-def get_service_attendance_detail(db: Session, current_user: User, service_id: str):
+def get_service_attendance_detail(db: Session, current_user: User, service_id: str, q: str | None = None):
     if current_user.role not in ["admin", "hod"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized.")
 
@@ -182,15 +189,30 @@ def get_service_attendance_detail(db: Session, current_user: User, service_id: s
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found.")
 
     # 2. Get Attendees
-    logs = db.query(AttendanceLog).filter(AttendanceLog.service_id == service.id).order_by(AttendanceLog.check_in_time.asc()).all()
+    logs_query = (
+        db.query(AttendanceLog, User)
+        .join(User, User.id == AttendanceLog.user_id)
+        .filter(AttendanceLog.service_id == service.id)
+    )
+
+    normalized_q = (q or "").strip()
+    if normalized_q:
+        search = f"%{normalized_q}%"
+        logs_query = logs_query.filter(
+            or_(
+                User.first_name.ilike(search),
+                User.last_name.ilike(search),
+                User.serial_number.ilike(search),
+                User.phone_number.ilike(search),
+            )
+        )
+
+    logs = logs_query.order_by(AttendanceLog.check_in_time.asc()).all()
     
     attendees = []
     attended_user_ids = set() # Keep track of who attended
     
-    for log in logs:
-        user = db.query(User).filter(User.id == log.user_id).first()
-        if not user:
-            continue
+    for log, user in logs:
         attended_user_ids.add(user.id)
         attendees.append({
             "id": user.id,
@@ -203,8 +225,22 @@ def get_service_attendance_detail(db: Session, current_user: User, service_id: s
         })
 
     # 3. Get Absentees (Active users who are NOT in the attended list)
-    all_active_users = db.query(User).filter(User.is_active == True).all()
-    absentee_users = [u for u in all_active_users if u.id not in attended_user_ids]
+    absentee_query = db.query(User).filter(User.is_active == True)
+    if attended_user_ids:
+        absentee_query = absentee_query.filter(~User.id.in_(attended_user_ids))
+
+    if normalized_q:
+        search = f"%{normalized_q}%"
+        absentee_query = absentee_query.filter(
+            or_(
+                User.first_name.ilike(search),
+                User.last_name.ilike(search),
+                User.serial_number.ilike(search),
+                User.phone_number.ilike(search),
+            )
+        )
+
+    absentee_users = absentee_query.all()
     
     # 4. Calculate Historical Streaks for Absentees
     absentees_payload = []
@@ -280,18 +316,16 @@ def get_usher_service_scans(db: Session, current_user: User, service_id: str):
     if not service:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found.")
 
-    logs = (
-        db.query(AttendanceLog)
+    rows = (
+        db.query(AttendanceLog, User)
+        .join(User, User.id == AttendanceLog.user_id)
         .filter(AttendanceLog.service_id == service.id, AttendanceLog.usher_id == current_user.id)
         .order_by(AttendanceLog.check_in_time.desc())
         .all()
     )
 
     scans = []
-    for log in logs:
-        user = db.query(User).filter(User.id == log.user_id).first()
-        if not user:
-            continue
+    for log, user in rows:
         scans.append({
             "id": log.id,
             "serial_number": user.serial_number,
