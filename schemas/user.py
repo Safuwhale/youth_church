@@ -4,36 +4,17 @@ from typing import Optional, Literal, List
 from uuid import UUID
 
 
-class PhoneLookupRequest(BaseModel):
-    phone_number: str
-
-class NameVerifyRequest(BaseModel):
-    phone_number: str
-    typed_name: str
-
-class ClaimProfileRequest(BaseModel):
-    phone_number: str
-    email: Optional[str] = None
-    sex: Optional[str] = None
-    dob: Optional[date] = None                    
-    location_zone: Optional[str] = None          
-    whatsapp_number: Optional[str] = None        
-    contact_person_name: Optional[str] = None     
-    contact_person_relation: Optional[str] = None 
-    contact_person_phone: Optional[str] = None
-    profile_photo_url: Optional[str] = None
-
 # Payload expected from the React frontend
 class UserCreate(BaseModel):
     first_name: str = Field(..., example="John")
     last_name: str = Field(..., example="Doe")
-    phone_number: str = Field(..., example="08000000000")
+    phone_number: Optional[str] = Field(None, example="08000000000")
     whatsapp_number: Optional[str] = None
     whatsapp_same_as_phone: bool = True 
-    dob: date = Field(..., example="2003-05-14")
-    location_zone: str = Field(..., example="Wuse 2")
-    contact_person_name: str = Field(..., example="Mrs. Doe")
-    contact_person_relation: str = Field(..., example="Mother")
+    dob: Optional[date] = Field(None, example="2003-05-14")
+    location_zone: Optional[str] = Field(None, example="Wuse 2")
+    contact_person_name: Optional[str] = Field(None, example="Mrs. Doe")
+    contact_person_relation: Optional[str] = Field(None, example="Mother")
     email: Optional[EmailStr] = None
     sex: Optional[str] = None
     contact_person_phone: Optional[str] = None
@@ -53,7 +34,7 @@ class UserResponse(BaseModel):
     last_name: str
     email: Optional[EmailStr] = None
     sex: Optional[str] = None
-    phone_number: str
+    phone_number: Optional[str] = None
     whatsapp_number: Optional[str] = None
     dob: Optional[date] = None
     location_zone: Optional[str] = None
@@ -64,6 +45,7 @@ class UserResponse(BaseModel):
     is_active: bool
     cell_group_id: Optional[UUID] = None
     profile_photo_url: Optional[str] = None
+    is_archived: bool = False
 
     class Config:
         from_attributes = True
@@ -100,7 +82,7 @@ class UserDirectoryItem(BaseModel):
     serial_number: str
     first_name: str
     last_name: str
-    phone_number: str
+    phone_number: Optional[str] = None
     location_zone: Optional[str] = None
     role: str
     is_active: bool
@@ -111,6 +93,8 @@ class UserDirectoryItem(BaseModel):
     contact_person_name: Optional[str] = None
     contact_person_phone: Optional[str] = None
     cell_group_name: Optional[str] = None
+    is_archived: bool = False
+    tags: List[str] = []
 
     class Config:
         from_attributes = True

@@ -41,24 +41,24 @@ def update_cell(db: Session, cell_group_id: str, cell_data: CellUpdate):
 
 
 def delete_cell(db: Session, cell_group_id: str):
-    cell = db.query(CellGroup).filter(CellGroup.id == cell_group_id).first()
+    cell = db.query(CellGroup).filter(CellGroup.id == cell_group_id, CellGroup.is_archived == False).first()
     if not cell:
         raise HTTPException(status_code=404, detail="Cell group not found")
 
     db.query(User).filter(User.cell_group_id == cell.id).update({"cell_group_id": None}, synchronize_session=False)
-    db.delete(cell)
+    cell.is_archived = True
     db.commit()
 
 
 def list_cells(db: Session):
-    cells = db.query(CellGroup).order_by(CellGroup.created_at.desc()).all()
+    cells = db.query(CellGroup).filter(CellGroup.is_archived == False).order_by(CellGroup.created_at.desc()).all()
     result = []
     for cell in cells:
-        leaders = db.query(User).filter(User.cell_group_id == cell.id, User.role == "leader", User.is_active == True).order_by(User.first_name.asc()).all()
+        leaders = db.query(User).filter(User.cell_group_id == cell.id, User.role == "leader", User.is_active == True, User.is_archived == False).order_by(User.first_name.asc()).all()
         result.append({
             "id": cell.id,
             "name": cell.name,
-            "member_count": db.query(User).filter(User.cell_group_id == cell.id).count(),
+            "member_count": db.query(User).filter(User.cell_group_id == cell.id, User.is_archived == False).count(),
             "leader_count": len(leaders),
             "leader_name": f"{leaders[0].first_name} {leaders[0].last_name}" if leaders else None,
             "leader_phone": leaders[0].phone_number if leaders else None,
@@ -71,7 +71,7 @@ def list_cell_members(db: Session, cell_group_id: str):
     if not cell:
         raise HTTPException(status_code=404, detail="Cell group not found")
 
-    members = db.query(User).filter(User.cell_group_id == cell.id).order_by(User.first_name.asc()).all()
+    members = db.query(User).filter(User.cell_group_id == cell.id, User.is_archived == False).order_by(User.first_name.asc()).all()
     return [
         _serialize_member(member)
         for member in members
@@ -155,7 +155,7 @@ def generate_leader_dashboard(db: Session, current_user: User):
         User.role == "leader"
     ).first()
 
-    all_members = db.query(User).filter(User.cell_group_id == cell.id).all()
+    all_members = db.query(User).filter(User.cell_group_id == cell.id, User.is_archived == False).all()
     
     # 2. Build the member payload and calculate history
     enriched_members = []
@@ -164,7 +164,7 @@ def generate_leader_dashboard(db: Session, current_user: User):
         # Get all attendance records for this specific member for the last 7 services
         member_attendances = db.query(AttendanceLog).filter(
             AttendanceLog.user_id == member.id,
-            AttendanceLog.service_id.in_(service_ids)
+            AttendanceLog.service_id.in_(service_ids), AttendanceLog.is_archived == False
         ).all()
         
         attended_service_ids = {att.service_id for att in member_attendances}

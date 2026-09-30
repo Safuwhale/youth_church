@@ -1,17 +1,6 @@
 from fastapi import FastAPI
-from database import engine, Base
-from routers import users, services, attendance, cells,health
-import models
+from routers import users, services, attendance, cells, health, tags
 from fastapi.middleware.cors import CORSMiddleware
-
-# Create tables if they don't exist
-Base.metadata.create_all(bind=engine)
-
-app = FastAPI(
-    title="Attendance API",
-    description="API backend for QR check-in system.",
-    version="1.0.0"
-)
 # --- CORS SETUP ---
 # This tells FastAPI to trust requests coming from your React development server(frontend)
 origins = [
@@ -21,7 +10,13 @@ origins = [
     "https://horyc.vercel.app"
 ]
 
-app = FastAPI(docs_url=None, redoc_url=None) # Disables the docs in production
+app = FastAPI(
+    title="Attendance API",
+    description="API backend for QR check-in system.",
+    version="1.0.0",
+    docs_url=None,
+    redoc_url=None,
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -32,6 +27,7 @@ app.add_middleware(
 )
 
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
+app.include_router(tags.router, prefix="/api/tags", tags=["Tags"])
 app.include_router(services.router, prefix="/api/services", tags=["Services"])
 app.include_router(attendance.router, prefix="/api/attendance", tags=["Attendance (Scanner)"])
 app.include_router(cells.router, prefix="/api/cells", tags=["Cell Groups"])

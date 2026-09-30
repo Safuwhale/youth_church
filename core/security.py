@@ -1,4 +1,6 @@
 import os
+import secrets
+import hmac
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 import bcrypt
@@ -11,6 +13,20 @@ ALGORITHM = os.getenv("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS"))
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
+COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax").lower()
+if COOKIE_SAMESITE not in {"lax", "strict", "none"}:
+    raise RuntimeError("COOKIE_SAMESITE must be lax, strict, or none")
+if COOKIE_SAMESITE == "none" and not COOKIE_SECURE:
+    raise RuntimeError("COOKIE_SECURE must be true when COOKIE_SAMESITE is none")
+CSRF_COOKIE_NAME = "csrf_token"
+
+
+def create_csrf_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def csrf_is_valid(cookie_token: str | None, header_token: str | None) -> bool:
+    return bool(cookie_token and header_token and hmac.compare_digest(cookie_token, header_token))
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Checks if the provided password matches the hash in the database."""

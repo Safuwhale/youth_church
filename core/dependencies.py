@@ -27,12 +27,12 @@ def get_current_user(token: HTTPAuthorizationCredentials = Depends(security), db
         raise credentials_exception
         
     # Find the user in the database
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == user_id, User.is_archived == False).first()
     if user is None:
         raise credentials_exception
         
     # Security check: Are they soft-deleted?
-    if not user.is_active:
+    if not user.is_active or user.is_archived:
         raise HTTPException(status_code=403, detail="Inactive user account")
         
     return user
