@@ -55,10 +55,11 @@ def download_attendance_report(
 @router.get("/services/{service_id}")
 def get_service_attendance(
     service_id: str,
+    q: str | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return get_service_attendance_detail(db=db, current_user=current_user, service_id=service_id)
+    return get_service_attendance_detail(db=db, current_user=current_user, service_id=service_id, q=q)
 
 
 @router.get("/services/{service_id}/my-scans")

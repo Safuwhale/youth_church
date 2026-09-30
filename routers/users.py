@@ -128,7 +128,7 @@ def login_user(credentials: UserLogin, response: Response, db: Session = Depends
         )
 
     # Generate BOTH tokens
-    token_data = {"sub": str(user.id), "role": user.role}
+    token_data = {"sub": str(user.id), "role": user.role, "token_version": user.token_version}
     access_token = create_access_token(data=token_data)
     refresh_token = create_refresh_token(data=token_data)
 

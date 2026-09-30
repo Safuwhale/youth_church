@@ -60,6 +60,11 @@ class TokenResponse(BaseModel):
     token_type: str
     user: UserResponse
 
+
+class RefreshTokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+
 class UserUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
@@ -95,6 +100,19 @@ class UserDirectoryItem(BaseModel):
     cell_group_name: Optional[str] = None
     is_archived: bool = False
     tags: List[str] = []
+
+    class Config:
+        from_attributes = True
+
+
+class UserSearchItem(BaseModel):
+    id: UUID
+    serial_number: str
+    first_name: str
+    last_name: str
+    phone_number: str
+    role: str
+    is_active: bool
 
     class Config:
         from_attributes = True

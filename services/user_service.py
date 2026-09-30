@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import text
 from fastapi import HTTPException, status
 from models import User
 from schemas.user import UserCreate
@@ -7,28 +8,25 @@ from core.security import get_password_hash
 
 def get_next_available_serial(db: Session) -> str:
     """
-    Finds the lowest available sequential serial number, filling in any deleted gaps.
+    Returns a monotonic serial number backed by a database sequence.
     """
     prefix = "HORYC-"
-    
-    # Get all existing serial numbers from the database
-    existing_users = db.query(User.serial_number).filter(User.serial_number.like(f"{prefix}%")).all()
-    
-    # Extract the integer parts into a highly optimized Python set
-    used_numbers = set()
-    for (serial,) in existing_users:
-        try:
-            num = int(serial.split("-")[1])
-            used_numbers.add(num)
-        except (IndexError, ValueError):
-            continue
-            
-    # Start counting from 1 and find the first number that isn't in the used set
-    expected_number = 1
-    while expected_number in used_numbers:
-        expected_number += 1
-        
-    return f"{prefix}{expected_number:03d}"
+
+    try:
+        next_number = db.execute(text("SELECT nextval('user_serial_seq')")).scalar_one()
+    except Exception:
+        # Fallback for local/dev environments where the migration has not yet run.
+        max_existing = db.execute(
+            text(
+                """
+                SELECT COALESCE(MAX((regexp_match(serial_number, '^HORYC-([0-9]+)$'))[1]::int), 0)
+                FROM users
+                """
+            )
+        ).scalar_one()
+        next_number = int(max_existing) + 1
+
+    return f"{prefix}{int(next_number):03d}"
 
 def create_new_user(db: Session, user_data: UserCreate):
     # 1. Check if phone number already exists
