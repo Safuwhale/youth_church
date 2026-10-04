@@ -86,7 +86,7 @@ class UserDirectoryItem(BaseModel):
     id: UUID
     serial_number: str
     first_name: str
-    last_name: str
+    last_name: Optional[str] = None
     phone_number: Optional[str] = None
     location_zone: Optional[str] = None
     role: str
@@ -109,8 +109,8 @@ class UserSearchItem(BaseModel):
     id: UUID
     serial_number: str
     first_name: str
-    last_name: str
-    phone_number: str
+    last_name: Optional[str] = None
+    phone_number: Optional[str] = None
     role: str
     is_active: bool
 
