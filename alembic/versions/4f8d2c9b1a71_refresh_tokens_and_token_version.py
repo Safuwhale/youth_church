@@ -4,8 +4,6 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-
-# revision identifiers, used by Alembic.
 revision = "4f8d2c9b1a71"
 down_revision = "cd9a6e176e40"
 branch_labels = None
@@ -13,11 +11,7 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "users",
-        sa.Column("token_version", sa.Integer(), nullable=False, server_default=sa.text("0")),
-    )
-
+    op.add_column("users", sa.Column("token_version", sa.Integer(), nullable=False, server_default=sa.text("0")))
     op.create_table(
         "refresh_tokens",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),

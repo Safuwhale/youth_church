@@ -30,7 +30,9 @@ def get_next_available_serial(db: Session) -> str:
 
 def create_new_user(db: Session, user_data: UserCreate):
     # 1. Check if phone number already exists
-    existing_user = db.query(User).filter(User.phone_number == user_data.phone_number).first()
+    existing_user = None
+    if user_data.phone_number:
+        existing_user = db.query(User).filter(User.phone_number == user_data.phone_number, User.is_archived == False).first()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 

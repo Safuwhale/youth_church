@@ -1,6 +1,5 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc
-from sqlalchemy import or_
 from fastapi import HTTPException, status
 from models import User, Service, AttendanceLog
 from schemas.attendance import AttendanceScan
@@ -27,7 +26,7 @@ def process_scan(db: Session, scan_data: AttendanceScan, current_user: User):
     if current_user.role not in ["usher", "hod"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized.")
 
-    target_service = db.query(Service).filter(Service.id == scan_data.service_id).first()
+    target_service = db.query(Service).filter(Service.id == scan_data.service_id, Service.is_archived == False).first()
     if not target_service:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -40,14 +39,14 @@ def process_scan(db: Session, scan_data: AttendanceScan, current_user: User):
             detail="This service is closed. You cannot scan members into a closed service.",
         )
 
-    member = db.query(User).filter(User.serial_number == scan_data.serial_number).first()
+    member = db.query(User).filter(User.serial_number == scan_data.serial_number, User.is_archived == False).first()
     if not member:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Member not found.",
         )
 
-    if not member.is_active:
+    if not member.is_active or member.is_archived:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This user account has been deactivated.",
@@ -55,7 +54,7 @@ def process_scan(db: Session, scan_data: AttendanceScan, current_user: User):
 
     existing = db.query(AttendanceLog).filter(
         AttendanceLog.user_id == member.id,
-        AttendanceLog.service_id == target_service.id,
+        AttendanceLog.service_id == target_service.id, AttendanceLog.is_archived == False,
     ).first()
     if existing:
         raise HTTPException(
@@ -79,7 +78,7 @@ def process_scan(db: Session, scan_data: AttendanceScan, current_user: User):
 def process_self_checkin(db: Session, current_user: User, service_id: str):
     """Used by Members scanning the Service QR code poster."""
 
-    service = db.query(Service).filter(Service.id == service_id).first()
+    service = db.query(Service).filter(Service.id == service_id, Service.is_archived == False).first()
     if not service:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found.")
 
@@ -91,7 +90,7 @@ def process_self_checkin(db: Session, current_user: User, service_id: str):
 
     existing_log = db.query(AttendanceLog).filter(
         AttendanceLog.user_id == current_user.id,
-        AttendanceLog.service_id == service.id,
+        AttendanceLog.service_id == service.id, AttendanceLog.is_archived == False,
     ).first()
     if existing_log:
         raise HTTPException(
@@ -117,22 +116,20 @@ def export_attendance_csv(db: Session, current_user: User):
     if current_user.role not in ["admin", "hod"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to export data.")
 
-    active_service = db.query(Service).filter(Service.is_active == True).first()
+    active_service = db.query(Service).filter(Service.is_active == True, Service.is_archived == False).first()
     if not active_service:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="There is no active service to export.")
 
-    rows = (
-        db.query(AttendanceLog, User)
-        .join(User, User.id == AttendanceLog.user_id)
-        .filter(AttendanceLog.service_id == active_service.id)
-        .all()
-    )
+    logs = db.query(AttendanceLog).options(joinedload(AttendanceLog.user)).filter(AttendanceLog.service_id == active_service.id, AttendanceLog.is_archived == False).all()
 
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["Date", "Service Title", "Serial Number", "First Name", "Last Name", "Check-in Time", "Method"])
 
-    for log, user in rows:
+    for log in logs:
+        user = log.user
+        if not user or user.is_archived:
+            continue
         writer.writerow([
             active_service.service_date,
             active_service.title,
@@ -150,22 +147,20 @@ def export_service_attendance_csv(db: Session, current_user: User, service_id: s
     if current_user.role not in ["admin", "hod"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to export data.")
 
-    service = db.query(Service).filter(Service.id == service_id).first()
+    service = db.query(Service).filter(Service.id == service_id, Service.is_archived == False).first()
     if not service:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found.")
 
-    rows = (
-        db.query(AttendanceLog, User)
-        .join(User, User.id == AttendanceLog.user_id)
-        .filter(AttendanceLog.service_id == service.id)
-        .all()
-    )
+    logs = db.query(AttendanceLog).options(joinedload(AttendanceLog.user)).filter(AttendanceLog.service_id == service.id, AttendanceLog.is_archived == False).all()
 
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["Date", "Service Title", "Serial Number", "First Name", "Last Name", "Check-in Time", "Method"])
 
-    for log, user in rows:
+    for log in logs:
+        user = log.user
+        if not user:
+            continue
         writer.writerow([
             service.service_date,
             service.title,
@@ -179,40 +174,25 @@ def export_service_attendance_csv(db: Session, current_user: User, service_id: s
     return output.getvalue()
 
 
-def get_service_attendance_detail(db: Session, current_user: User, service_id: str, q: str | None = None):
+def get_service_attendance_detail(db: Session, current_user: User, service_id: str):
     if current_user.role not in ["admin", "hod"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized.")
 
     # 1. Fetch the target service
-    service = db.query(Service).filter(Service.id == service_id).first()
+    service = db.query(Service).filter(Service.id == service_id, Service.is_archived == False).first()
     if not service:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found.")
 
     # 2. Get Attendees
-    logs_query = (
-        db.query(AttendanceLog, User)
-        .join(User, User.id == AttendanceLog.user_id)
-        .filter(AttendanceLog.service_id == service.id)
-    )
-
-    normalized_q = (q or "").strip()
-    if normalized_q:
-        search = f"%{normalized_q}%"
-        logs_query = logs_query.filter(
-            or_(
-                User.first_name.ilike(search),
-                User.last_name.ilike(search),
-                User.serial_number.ilike(search),
-                User.phone_number.ilike(search),
-            )
-        )
-
-    logs = logs_query.order_by(AttendanceLog.check_in_time.asc()).all()
+    logs = db.query(AttendanceLog).options(joinedload(AttendanceLog.user)).filter(AttendanceLog.service_id == service.id, AttendanceLog.is_archived == False).order_by(AttendanceLog.check_in_time.asc()).all()
     
     attendees = []
     attended_user_ids = set() # Keep track of who attended
     
-    for log, user in logs:
+    for log in logs:
+        user = log.user
+        if not user:
+            continue
         attended_user_ids.add(user.id)
         attendees.append({
             "id": user.id,
@@ -225,22 +205,8 @@ def get_service_attendance_detail(db: Session, current_user: User, service_id: s
         })
 
     # 3. Get Absentees (Active users who are NOT in the attended list)
-    absentee_query = db.query(User).filter(User.is_active == True)
-    if attended_user_ids:
-        absentee_query = absentee_query.filter(~User.id.in_(attended_user_ids))
-
-    if normalized_q:
-        search = f"%{normalized_q}%"
-        absentee_query = absentee_query.filter(
-            or_(
-                User.first_name.ilike(search),
-                User.last_name.ilike(search),
-                User.serial_number.ilike(search),
-                User.phone_number.ilike(search),
-            )
-        )
-
-    absentee_users = absentee_query.all()
+    all_active_users = db.query(User).filter(User.is_active == True, User.is_archived == False).all()
+    absentee_users = [u for u in all_active_users if u.id not in attended_user_ids]
     
     # 4. Calculate Historical Streaks for Absentees
     absentees_payload = []
@@ -249,7 +215,7 @@ def get_service_attendance_detail(db: Session, current_user: User, service_id: s
         # Get the 7 services up to AND INCLUDING the date of the selected service
         last_7_services = (
             db.query(Service)
-            .filter(Service.service_date <= service.service_date)
+            .filter(Service.service_date <= service.service_date, Service.is_archived == False)
             .order_by(desc(Service.service_date))
             .limit(7)
             .all()
@@ -264,7 +230,8 @@ def get_service_attendance_detail(db: Session, current_user: User, service_id: s
             db.query(AttendanceLog)
             .filter(
                 AttendanceLog.service_id.in_(historical_service_ids),
-                AttendanceLog.user_id.in_(absentee_ids)
+                AttendanceLog.user_id.in_(absentee_ids),
+                AttendanceLog.is_archived == False
             )
             .all()
         )
@@ -312,20 +279,23 @@ def get_usher_service_scans(db: Session, current_user: User, service_id: str):
     if current_user.role not in ["usher", "hod"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized.")
 
-    service = db.query(Service).filter(Service.id == service_id).first()
+    service = db.query(Service).filter(Service.id == service_id, Service.is_archived == False).first()
     if not service:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found.")
 
-    rows = (
-        db.query(AttendanceLog, User)
-        .join(User, User.id == AttendanceLog.user_id)
-        .filter(AttendanceLog.service_id == service.id, AttendanceLog.usher_id == current_user.id)
+    logs = (
+        db.query(AttendanceLog)
+        .options(joinedload(AttendanceLog.user))
+        .filter(AttendanceLog.service_id == service.id, AttendanceLog.usher_id == current_user.id, AttendanceLog.is_archived == False)
         .order_by(AttendanceLog.check_in_time.desc())
         .all()
     )
 
     scans = []
-    for log, user in rows:
+    for log in logs:
+        user = log.user
+        if not user:
+            continue
         scans.append({
             "id": log.id,
             "serial_number": user.serial_number,

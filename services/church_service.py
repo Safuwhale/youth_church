@@ -17,10 +17,10 @@ def create_service(db: Session, service_data: ServiceCreate):
 
 def activate_service(db: Session, service_id: str):
     # 1. SAFETY MEASURE: Deactivate ALL currently active services to prevent overlaps
-    db.query(Service).filter(Service.is_active == True).update({"is_active": False})
+    db.query(Service).filter(Service.is_active == True, Service.is_archived == False).update({"is_active": False})
     
     # 2. Find the requested service
-    target_service = db.query(Service).filter(Service.id == service_id).first()
+    target_service = db.query(Service).filter(Service.id == service_id, Service.is_archived == False).first()
     if not target_service:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
         
@@ -33,7 +33,7 @@ def activate_service(db: Session, service_id: str):
     return target_service
 
 def deactivate_service(db: Session, service_id: str):
-    target_service = db.query(Service).filter(Service.id == service_id).first()
+    target_service = db.query(Service).filter(Service.id == service_id, Service.is_archived == False).first()
     if not target_service:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
         
@@ -45,16 +45,17 @@ def deactivate_service(db: Session, service_id: str):
     return target_service
 
 def delete_service(db: Session, service_id: str):
-    target_service = db.query(Service).filter(Service.id == service_id).first()
+    target_service = db.query(Service).filter(Service.id == service_id, Service.is_archived == False).first()
     if not target_service:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
         
-    db.delete(target_service)
+    target_service.is_active = False
+    target_service.is_archived = True
+    db.query(AttendanceLog).filter(AttendanceLog.service_id == target_service.id).update({"is_archived": True}, synchronize_session=False)
     db.commit()
 
 def get_all_services(db: Session):
-    services = db.query(Service).order_by(Service.service_date.desc()).all()
-
+    services = db.query(Service).filter(Service.is_archived == False).order_by(Service.service_date.desc()).all()
     service_ids = [s.id for s in services]
     attendance_counts = {}
     if service_ids:
