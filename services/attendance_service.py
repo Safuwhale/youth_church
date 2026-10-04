@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import desc
+from sqlalchemy import desc, or_
 from fastapi import HTTPException, status
 from models import User, Service, AttendanceLog
 from schemas.attendance import AttendanceScan
@@ -174,7 +174,7 @@ def export_service_attendance_csv(db: Session, current_user: User, service_id: s
     return output.getvalue()
 
 
-def get_service_attendance_detail(db: Session, current_user: User, service_id: str):
+def get_service_attendance_detail(db: Session, current_user: User, service_id: str, q: str | None = None):
     if current_user.role not in ["admin", "hod"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized.")
 
@@ -184,7 +184,24 @@ def get_service_attendance_detail(db: Session, current_user: User, service_id: s
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found.")
 
     # 2. Get Attendees
-    logs = db.query(AttendanceLog).options(joinedload(AttendanceLog.user)).filter(AttendanceLog.service_id == service.id, AttendanceLog.is_archived == False).order_by(AttendanceLog.check_in_time.asc()).all()
+    logs_query = (
+        db.query(AttendanceLog)
+        .options(joinedload(AttendanceLog.user))
+        .join(User, AttendanceLog.user_id == User.id)
+        .filter(AttendanceLog.service_id == service.id, AttendanceLog.is_archived == False, User.is_archived == False)
+    )
+    normalized_q = (q or "").strip()
+    if normalized_q:
+        search = f"%{normalized_q}%"
+        logs_query = logs_query.filter(
+            or_(
+                User.first_name.ilike(search),
+                User.last_name.ilike(search),
+                User.serial_number.ilike(search),
+                User.phone_number.ilike(search),
+            )
+        )
+    logs = logs_query.order_by(AttendanceLog.check_in_time.asc()).all()
     
     attendees = []
     attended_user_ids = set() # Keep track of who attended
@@ -205,8 +222,21 @@ def get_service_attendance_detail(db: Session, current_user: User, service_id: s
         })
 
     # 3. Get Absentees (Active users who are NOT in the attended list)
-    all_active_users = db.query(User).filter(User.is_active == True, User.is_archived == False).all()
-    absentee_users = [u for u in all_active_users if u.id not in attended_user_ids]
+    absentee_query = db.query(User).filter(User.is_active == True, User.is_archived == False)
+    if attended_user_ids:
+        absentee_query = absentee_query.filter(~User.id.in_(attended_user_ids))
+    if normalized_q:
+        search = f"%{normalized_q}%"
+        absentee_query = absentee_query.filter(
+            or_(
+                User.first_name.ilike(search),
+                User.last_name.ilike(search),
+                User.serial_number.ilike(search),
+                User.phone_number.ilike(search),
+            )
+        )
+    all_active_users = absentee_query.all()
+    absentee_users = all_active_users
     
     # 4. Calculate Historical Streaks for Absentees
     absentees_payload = []
